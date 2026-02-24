@@ -3,7 +3,7 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1600&q=80') no-repeat center center fixed;
+  background: url('../assets/register-bg.svg') no-repeat center center fixed;
   background-size: cover;
   min-height: 100vh;
   display: flex;
@@ -196,4 +196,49 @@ footer {
   text-align: center;
   padding: 20px;
   margin-top: auto;
+}
+
+@media (max-width: 768px) {
+  nav {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  nav .logo h2 {
+    font-size: 18px;
+  }
+
+  nav ul {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  nav ul li {
+    margin-left: 14px;
+  }
+
+  .register-main {
+    padding: 18px 10px;
+  }
+
+  .register-card {
+    padding: 22px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  nav .logo h2 {
+    font-size: 16px;
+  }
+
+  nav ul li a {
+    font-size: 14px;
+  }
+
+  .register-card h2 {
+    font-size: 24px;
+    margin-bottom: 18px;
+  }
 }

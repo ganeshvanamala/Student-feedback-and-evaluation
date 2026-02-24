@@ -29,6 +29,7 @@
   text-align: center;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   max-width: 400px;
+  width: calc(100% - 24px);
   animation: popIn 0.3s ease-out;
 }
 
@@ -80,4 +81,19 @@
 
 .modal-btn:active {
   transform: translateY(0);
+}
+
+@media (max-width: 640px) {
+  .modal-content {
+    padding: 24px 16px;
+  }
+
+  .modal-icon {
+    font-size: 38px;
+    margin-bottom: 10px;
+  }
+
+  .modal-content h2 {
+    font-size: 20px;
+  }
 }

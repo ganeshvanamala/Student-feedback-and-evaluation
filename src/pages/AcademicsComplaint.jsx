@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
+import { safeParse } from "../utils/storage";
 
 function AcademicsComplaint() {
   const location = useLocation();
@@ -41,7 +42,7 @@ function AcademicsComplaint() {
       return;
     }
     // check whether this category is blocked for complaints
-    const blocks = JSON.parse(localStorage.getItem("complaintBlockList")) || { academics: [], sports: [], hostel: [], categoryBlocked: {} };
+    const blocks = safeParse("complaintBlockList", { academics: [], sports: [], hostel: [], categoryBlocked: {} });
     if (blocks.categoryBlocked && blocks.categoryBlocked.academics) {
       setNotificationData({
         title: "Access Denied",
@@ -51,7 +52,7 @@ function AcademicsComplaint() {
       setShowNotification(true);
       return;
     }
-    const complaints = JSON.parse(localStorage.getItem("academicsComplaints")) || [];
+    const complaints = safeParse("academicsComplaints", []);
     complaints.push({
       complaintId: Date.now(),
       faculty,
@@ -82,11 +83,12 @@ function AcademicsComplaint() {
   const styles = {
     pageCard: {
       backgroundColor: isDark ? "#171c25" : "#fff",
-      padding: "20px",
+      padding: "clamp(14px, 4vw, 20px)",
       borderRadius: "8px",
       boxShadow: isDark ? "0 0 16px rgba(0,0,0,0.45)" : "0 0 10px rgba(0,0,0,0.1)",
       maxWidth: "600px",
-      margin: "20px auto",
+      width: "min(600px, calc(100% - 24px))",
+      margin: "12px auto",
       fontFamily: "Arial, sans-serif",
     },
     heading: {

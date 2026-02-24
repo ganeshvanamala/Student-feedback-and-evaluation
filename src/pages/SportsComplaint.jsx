@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
+import { safeParse } from "../utils/storage";
 
 function SportsComplaint() {
   const location = useLocation();
@@ -35,12 +36,12 @@ function SportsComplaint() {
   const styles = {
     pageCard: {
       background: isDark ? "rgba(23, 28, 37, 0.95)" : "rgba(255, 248, 240, 0.9)",
-      padding: "40px",
+      padding: "clamp(16px, 5vw, 40px)",
       borderRadius: "20px",
       boxShadow: "0 15px 30px rgba(0,0,0,0.3)",
       textAlign: "center",
-      width: "450px",
-      margin: "50px auto",
+      width: "min(450px, calc(100% - 24px))",
+      margin: "12px auto",
       fontFamily: "Arial, sans-serif",
     },
     heading: { marginBottom: "30px", color: isDark ? "#f1e4bd" : "#b01b3b" },
@@ -60,7 +61,7 @@ function SportsComplaint() {
       return;
     }
     // check block list
-    const blocks = JSON.parse(localStorage.getItem("complaintBlockList")) || { academics: [], sports: [], hostel: [], categoryBlocked: {} };
+    const blocks = safeParse("complaintBlockList", { academics: [], sports: [], hostel: [], categoryBlocked: {} });
     if (blocks.categoryBlocked && blocks.categoryBlocked.sports) {
       setNotificationData({
         title: "Access Denied",
@@ -80,7 +81,7 @@ function SportsComplaint() {
       return;
     }
 
-    const complaints = JSON.parse(localStorage.getItem("sportsComplaints")) || [];
+    const complaints = safeParse("sportsComplaints", []);
     complaints.push({
       complaintId: Date.now(),
       name,

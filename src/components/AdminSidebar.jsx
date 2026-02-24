@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import logo from "../assets/logo.svg";
 
 function AdminSidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ function AdminSidebar({ isOpen, onClose }) {
   return (
     <aside className={`admin-sidebar ${isOpen ? "open" : ""}`}>
       <div className="sidebar-logo">
-        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135755.png" alt="Logo" />
+        <img src={logo} alt="Logo" />
         <h2>Admin</h2>
         <button className="admin-sidebar-close" onClick={onClose}>
           Menu

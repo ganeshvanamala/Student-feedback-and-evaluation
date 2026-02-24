@@ -67,3 +67,17 @@
     opacity: 0;
   }
 }
+
+@media (max-width: 640px) {
+  .toast-container {
+    right: 10px;
+    left: 10px;
+    bottom: 10px;
+    max-width: none;
+  }
+
+  .toast {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}

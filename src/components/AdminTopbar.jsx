@@ -1,4 +1,5 @@
 import React from "react";
+import adminAvatar from "../assets/admin-avatar.svg";
 
 function AdminTopbar({ onMenuToggle }) {
   const currentTime = new Date().toLocaleTimeString();
@@ -17,7 +18,7 @@ function AdminTopbar({ onMenuToggle }) {
           {currentDate} | {currentTime}
         </span>
         <div className="topbar-avatar">
-          <img src="https://ui-avatars.com/api/?name=Admin&background=2575fc&color=fff" alt="Admin" />
+          <img src={adminAvatar} alt="Admin" />
         </div>
       </div>
     </div>

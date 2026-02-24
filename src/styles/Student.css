@@ -1,12 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap");
-
 .student-layout {
   min-height: 100vh;
   display: flex;
   background: var(--page-bg) no-repeat center center fixed;
   background-size: cover;
   color: var(--text-main);
-  font-family: "Manrope", "Segoe UI", "Trebuchet MS", sans-serif;
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
 }
 
 .student-layout.theme-light {
@@ -398,13 +396,14 @@
 
   .topbar-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .menu-toggle,
   .theme-toggle,
   .action-btn,
   .logout-btn {
-    width: 25%;
+    width: calc(50% - 5px);
   }
 
   .menu-toggle {
@@ -413,5 +412,32 @@
 
   .sidebar-menu-btn {
     display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-content {
+    padding: 0 10px 12px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .menu-toggle,
+  .theme-toggle,
+  .action-btn,
+  .logout-btn {
+    width: 100%;
   }
 }

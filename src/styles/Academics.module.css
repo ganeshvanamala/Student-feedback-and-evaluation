@@ -56,3 +56,29 @@ input, select {
   background-color: #6a11cb;
   transform: scale(1.05);
 }
+
+@media (max-width: 768px) {
+  body {
+    padding: 12px;
+  }
+
+  .pageCard {
+    margin: 20px auto;
+    padding: 18px 14px;
+  }
+
+  h1,
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 14px;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .actionButtons button {
+    width: 100%;
+  }
+}

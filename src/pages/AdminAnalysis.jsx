@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { getFaculty, getSubjects, initializeAcademicData } from "../utils/academicData";
+import { safeParse } from "../utils/storage";
 
 ChartJS.register(
   ArcElement,
@@ -126,8 +127,8 @@ const buildQuestionAnalysis = (question, responses) => {
 };
 
 const buildAnalysis = () => {
-  const rawForms = JSON.parse(localStorage.getItem("adminForms")) || {};
-  const sampleForms = JSON.parse(localStorage.getItem(SAMPLE_FORMS_KEY)) || [];
+  const rawForms = safeParse("adminForms", {});
+  const sampleForms = safeParse(SAMPLE_FORMS_KEY, []);
   const forms = [...normalizeForms(rawForms), ...sampleForms].filter(
     (form) => CATEGORY_ORDER.includes(form?.category) && Array.isArray(form?.questions)
   );
@@ -342,7 +343,7 @@ function AdminAnalysis() {
   const [selectedFormId, setSelectedFormId] = useState(null);
 
   useEffect(() => {
-    const existing = JSON.parse(localStorage.getItem(SAMPLE_FORMS_KEY)) || [];
+    const existing = safeParse(SAMPLE_FORMS_KEY, []);
     if (!Array.isArray(existing) || existing.length < 5) {
       generateSampleData();
     }

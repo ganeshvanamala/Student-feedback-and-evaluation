@@ -1,14 +1,15 @@
 import React, { useState } from "react";
+import { safeParse } from "../utils/storage";
 
 function Admin() {
   const [tab, setTab] = useState("academics");
 
-  const academicsFeedbacks = JSON.parse(localStorage.getItem("academicsFeedbacks")) || [];
-  const academicsComplaints = JSON.parse(localStorage.getItem("academicsComplaints")) || [];
-  const hostelFeedbacks = JSON.parse(localStorage.getItem("hostelFeedbacks")) || [];
-  const hostelComplaints = JSON.parse(localStorage.getItem("hostelComplaints")) || [];
-  const sportsFeedbacks = JSON.parse(localStorage.getItem("sportsFeedbacks")) || [];
-  const sportsComplaints = JSON.parse(localStorage.getItem("sportsComplaints")) || [];
+  const academicsFeedbacks = safeParse("academicsFeedbacks", []);
+  const academicsComplaints = safeParse("academicsComplaints", []);
+  const hostelFeedbacks = safeParse("hostelFeedbacks", []);
+  const hostelComplaints = safeParse("hostelComplaints", []);
+  const sportsFeedbacks = safeParse("sportsFeedbacks", []);
+  const sportsComplaints = safeParse("sportsComplaints", []);
 
   const renderFeedback = (feedbacks) => {
     if (!feedbacks.length) return <p>No feedback submitted yet.</p>;

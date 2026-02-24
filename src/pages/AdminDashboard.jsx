@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { safeParse } from "../utils/storage";
 
 const flattenForms = (rawForms) =>
   Object.entries(rawForms || {}).flatMap(([categoryId, value]) => {
@@ -19,11 +20,11 @@ function AdminDashboard() {
 
   useEffect(() => {
     // Get form data
-    const forms = JSON.parse(localStorage.getItem("adminForms")) || {};
+    const forms = safeParse("adminForms", {});
     const formList = flattenForms(forms);
-    const complaints = JSON.parse(localStorage.getItem("academicsComplaints")) || [];
-    const hostelComplaints = JSON.parse(localStorage.getItem("hostelComplaints")) || [];
-    const sportsComplaints = JSON.parse(localStorage.getItem("sportsComplaints")) || [];
+    const complaints = safeParse("academicsComplaints", []);
+    const hostelComplaints = safeParse("hostelComplaints", []);
+    const sportsComplaints = safeParse("sportsComplaints", []);
 
     let formsCount = formList.length;
     let totalResponses = 0;

@@ -33,8 +33,8 @@ function Hostel() {
   const styles = {
     backButton: {
       display: "inline-block",
-      marginLeft: "30px",
-      marginTop: "20px",
+      marginLeft: "12px",
+      marginTop: "12px",
       marginBottom: "10px",
       padding: "8px 15px",
       backgroundColor: isDark ? "#2a2f3a" : "#555",
@@ -47,12 +47,12 @@ function Hostel() {
     },
     pageCard: {
       background: isDark ? "rgba(23, 28, 37, 0.95)" : "rgba(240, 248, 255, 0.85)",
-      padding: "40px",
+      padding: "clamp(16px, 5vw, 40px)",
       borderRadius: "20px",
       boxShadow: "0 15px 30px rgba(0,0,0,0.3)",
       textAlign: "center",
-      width: "400px",
-      margin: "20px auto",
+      width: "min(400px, calc(100% - 24px))",
+      margin: "8px auto 20px",
       fontFamily: "Arial, sans-serif",
     },
     heading: {

@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
+import { safeParse } from "../utils/storage";
+import logo from "../assets/logo.svg";
 import "../styles/Register.css";
 
 function Register() {
@@ -52,7 +54,7 @@ function Register() {
     }
 
     // Get existing registrations from localStorage
-    const registeredUsers = JSON.parse(localStorage.getItem("registeredUsers")) || [];
+    const registeredUsers = safeParse("registeredUsers", []);
 
     // Check if username already exists
     if (registeredUsers.some(user => user.username === username)) {
@@ -98,7 +100,7 @@ function Register() {
       {/* Navbar */}
       <nav>
         <div className="logo">
-          <img src="https://cdn-icons-png.flaticon.com/512/3135/3135755.png" alt="Logo" />
+          <img src={logo} alt="Logo" />
           <h2>Student Feedback</h2>
         </div>
         <ul>

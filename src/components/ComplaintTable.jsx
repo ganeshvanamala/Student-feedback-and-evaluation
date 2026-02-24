@@ -1,7 +1,8 @@
 import React from "react";
+import { safeParse } from "../utils/storage";
 
 function ComplaintTable({ section }) {
-  const complaints = JSON.parse(localStorage.getItem(`${section.toLowerCase()}Complaints`)) || [];
+  const complaints = safeParse(`${section.toLowerCase()}Complaints`, []);
 
   return (
     <div style={{ overflowX: "auto" }}>

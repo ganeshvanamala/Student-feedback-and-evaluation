@@ -78,6 +78,8 @@ const Academics = () => {
   const styles = {
     backButton: {
       display: "inline-block",
+      marginLeft: "12px",
+      marginTop: "12px",
       marginBottom: "15px",
       padding: "8px 15px",
       backgroundColor: isDark ? "#2a2f3a" : "#555",
@@ -90,11 +92,12 @@ const Academics = () => {
     },
     pageCard: {
       backgroundColor: isDark ? "#171c25" : "#fff",
-      padding: "30px",
+      padding: "clamp(14px, 4vw, 30px)",
       borderRadius: "12px",
       boxShadow: isDark ? "0 8px 20px rgba(0,0,0,0.45)" : "0 8px 20px rgba(0,0,0,0.1)",
       maxWidth: "900px",
-      margin: "20px auto",
+      width: "min(900px, calc(100% - 24px))",
+      margin: "8px auto 20px",
       fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     },
     heading: { textAlign: "center", color: isDark ? "#f1e4bd" : "#333", marginBottom: "20px" },
@@ -111,11 +114,14 @@ const Academics = () => {
     },
     actionButtons: {
       display: "flex",
-      justifyContent: "space-around",
+      justifyContent: "space-between",
+      flexWrap: "wrap",
+      gap: "10px",
       marginTop: "20px",
     },
     button: {
       padding: "12px 20px",
+      flex: "1 1 220px",
       border: "none",
       borderRadius: "8px",
       backgroundColor: isDark ? "#b8860b" : "#2575fc",

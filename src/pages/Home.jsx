@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import "../styles/Home.css";
 import { useNavigate } from "react-router-dom";
 import { Captcha } from "../components/Captcha";
+import { safeParse } from "../utils/storage";
+import logo from "../assets/logo.svg";
 
 function Home() {
   const navigate = useNavigate();
@@ -40,7 +42,7 @@ function Home() {
 
     if (type === "student") {
       // Check registered users for student login
-      const registeredUsers = JSON.parse(localStorage.getItem("registeredUsers")) || [];
+      const registeredUsers = safeParse("registeredUsers", []);
       const user = registeredUsers.find(u => u.username === loginId && u.password === loginPass);
       
       if (user) {
@@ -65,7 +67,7 @@ function Home() {
       {/* Navbar */}
       <nav>
         <div className="logo">
-          <img src="https://cdn-icons-png.flaticon.com/512/3135/3135755.png" alt="Logo" />
+          <img src={logo} alt="Logo" />
           <h2>Student Feedback</h2>
         </div>
         <ul>

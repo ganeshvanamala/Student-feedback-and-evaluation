@@ -128,7 +128,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
           </label>
           <div className="stars-rating">
             {[1, 2, 3, 4, 5].map((star) => (
-              <button key={star} className={`star ${value === star ? "active" : ""}`} onClick={() => handleResponseChange(question.id, star)}>
+              <button key={star} className={`star ${value >= star ? "active" : ""}`} onClick={() => handleResponseChange(question.id, star)}>
                 *
               </button>
             ))}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { safeParse } from "../utils/storage";
 
 const flattenForms = (rawForms) =>
   Object.entries(rawForms || {}).flatMap(([categoryId, value]) => {
@@ -15,7 +16,7 @@ function AdminResponses() {
   const [replyDrafts, setReplyDrafts] = useState({});
 
   useEffect(() => {
-    const forms = JSON.parse(localStorage.getItem("adminForms")) || {};
+    const forms = safeParse("adminForms", {});
     const formList = flattenForms(forms);
     let responses = [];
 
@@ -39,9 +40,9 @@ function AdminResponses() {
 
     setAllResponses(responses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
 
-    const acadComplaints = JSON.parse(localStorage.getItem("academicsComplaints")) || [];
-    const sportComplaints = JSON.parse(localStorage.getItem("sportsComplaints")) || [];
-    const hostelComplaints = JSON.parse(localStorage.getItem("hostelComplaints")) || [];
+    const acadComplaints = safeParse("academicsComplaints", []);
+    const sportComplaints = safeParse("sportsComplaints", []);
+    const hostelComplaints = safeParse("hostelComplaints", []);
 
     const allComplaints = [
       ...acadComplaints.map((c, i) => ({
@@ -91,9 +92,9 @@ function AdminResponses() {
   };
 
   const parseStoredComplaints = (category) => {
-    if (category === "academics") return JSON.parse(localStorage.getItem("academicsComplaints")) || [];
-    if (category === "sports") return JSON.parse(localStorage.getItem("sportsComplaints")) || [];
-    if (category === "hostel") return JSON.parse(localStorage.getItem("hostelComplaints")) || [];
+    if (category === "academics") return safeParse("academicsComplaints", []);
+    if (category === "sports") return safeParse("sportsComplaints", []);
+    if (category === "hostel") return safeParse("hostelComplaints", []);
     return [];
   };
 
@@ -127,12 +128,12 @@ function AdminResponses() {
       saveStoredComplaints(complaint.category, stored);
     }
 
-    const blocks = JSON.parse(localStorage.getItem("complaintBlockList")) || {
+    const blocks = safeParse("complaintBlockList", {
       academics: [],
       sports: [],
       hostel: [],
       categoryBlocked: {},
-    };
+    });
 
     if (complaint.studentId) {
       if (!blocks[complaint.category]) blocks[complaint.category] = [];
@@ -158,7 +159,7 @@ function AdminResponses() {
       return;
     }
 
-    const existingReplies = JSON.parse(localStorage.getItem("studentReplies")) || [];
+    const existingReplies = safeParse("studentReplies", []);
     const newReply = {
       id: Date.now(),
       type,

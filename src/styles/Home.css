@@ -500,4 +500,90 @@ footer {
   }
 }
 
+@media (max-width: 700px) {
+  nav {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  nav .logo h2 {
+    font-size: 18px;
+  }
+
+  nav ul {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .main {
+    padding: 18px 12px 24px;
+    gap: 20px;
+  }
+
+  .center {
+    padding-right: 0;
+  }
+
+  .center h1 {
+    font-size: 42px;
+    line-height: 1.15;
+  }
+
+  .center p {
+    font-size: 18px;
+  }
+
+  .login-card {
+    padding: 18px;
+    width: 100%;
+    max-width: none;
+  }
+
+  .about-card h1,
+  .contact-card h1 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  nav .logo img {
+    height: 28px;
+    margin-right: 8px;
+  }
+
+  nav .logo h2 {
+    font-size: 16px;
+  }
+
+  nav ul li a {
+    font-size: 14px;
+  }
+
+  .theme-toggle-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .center h1 {
+    font-size: 34px;
+  }
+
+  .center p {
+    font-size: 16px;
+  }
+
+  .about-card,
+  .contact-card {
+    padding: 14px;
+  }
+
+  .about-section h2,
+  .contact-section h2 {
+    font-size: 20px;
+  }
+}
+
 

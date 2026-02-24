@@ -1,7 +1,8 @@
 import React from "react";
+import { safeParse } from "../utils/storage";
 
 function FeedbackAnalysis({ section }) {
-  const feedbacks = JSON.parse(localStorage.getItem(`${section.toLowerCase()}Feedbacks`)) || [];
+  const feedbacks = safeParse(`${section.toLowerCase()}Feedbacks`, []);
 
   if (feedbacks.length === 0) return <p style={{ textAlign: "center" }}>No feedback to analyze</p>;
 
