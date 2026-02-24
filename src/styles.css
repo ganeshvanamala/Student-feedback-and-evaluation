@@ -1,0 +1,97 @@
+* {
+  box-sizing: border-box;
+}
+
+body[data-theme="light"] {
+  --global-bg: #f5f8fc;
+  --global-surface: #ffffff;
+  --global-text: #12213a;
+  --global-muted: #4f607d;
+  --global-border: #d9e2ef;
+  --global-primary: #1e67da;
+  --global-danger: #c62828;
+  background: var(--global-bg);
+  color: var(--global-text);
+}
+
+body[data-theme="dark"] {
+  --global-bg: #0d1118;
+  --global-surface: #171c25;
+  --global-text: #f1e4bd;
+  --global-muted: #c8b279;
+  --global-border: #3e3214;
+  --global-primary: #b8860b;
+  --global-danger: #d04a4a;
+  background: var(--global-bg);
+  color: var(--global-text);
+}
+
+body[data-theme="dark"] .register-card,
+body[data-theme="dark"] .about-card,
+body[data-theme="dark"] .contact-card,
+body[data-theme="dark"] .feedback-card,
+body[data-theme="dark"] .form-viewer-container,
+body[data-theme="dark"] .form-success-card,
+body[data-theme="dark"] .no-form-card,
+body[data-theme="dark"] .admin-topbar,
+body[data-theme="dark"] .admin-sidebar,
+body[data-theme="dark"] .admin-content,
+body[data-theme="dark"] .filter-section,
+body[data-theme="dark"] .response-card,
+body[data-theme="dark"] .category-card,
+body[data-theme="dark"] .dashboard-section,
+body[data-theme="dark"] .analysis-section,
+body[data-theme="dark"] .chart-container,
+body[data-theme="dark"] .question-chart-card {
+  background: var(--global-surface) !important;
+  color: var(--global-text) !important;
+  border-color: var(--global-border) !important;
+}
+
+body[data-theme="dark"] input,
+body[data-theme="dark"] select,
+body[data-theme="dark"] textarea {
+  background: #111722 !important;
+  color: var(--global-text) !important;
+  border-color: var(--global-border) !important;
+}
+
+body[data-theme="dark"] nav,
+body[data-theme="dark"] footer {
+  background: rgba(11, 16, 24, 0.9) !important;
+  color: var(--global-text) !important;
+}
+
+body[data-theme="dark"] .admin-layout {
+  --bg-light: #0d1118;
+  --bg-white: #171c25;
+  --text-dark: #f1e4bd;
+  --text-light: #c8b279;
+  --border-color: #3e3214;
+  --primary-color: #b8860b;
+  --secondary-color: #b8860b;
+  --warning-color: #d79f1f;
+  --danger-color: #d04a4a;
+  --info-color: #c99d35;
+}
+
+.global-theme-toggle {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 9999;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1e67da 0%, #184da0 100%);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+body[data-theme="dark"] .global-theme-toggle {
+  background: linear-gradient(135deg, #b8860b 0%, #6f5518 100%);
+  color: #fff9e6;
+}
