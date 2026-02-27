@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
 import { safeParse } from "../utils/storage";
-// Improved hostel feedback validation
+
 function HostelComplaint() {
   const location = useLocation();
   const navigate = useNavigate();
