@@ -8,7 +8,7 @@ function Hostel() {
   const [hostel, setHostel] = useState("");
   const [theme, setTheme] = useState(() => localStorage.getItem("homeTheme") || "light");
   const isDark = theme === "dark";
-
+// updated hostel feedback logic
   useEffect(() => {
     const onThemeChange = (event) => {
       setTheme(event?.detail || localStorage.getItem("homeTheme") || "light");
