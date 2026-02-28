@@ -165,6 +165,20 @@ function Home() {
                 <strong>Routing:</strong> React Router v6+
               </p>
             </div>
+
+            <div className="about-section">
+              <h2>Demo Login Credentials</h2>
+              <p>
+                Migration V3 demo users are available for testing.<br/>
+                <strong>Default password for all demo users:</strong> demo@123
+              </p>
+              <ul>
+                <li><strong>HOD:</strong> hod-cse, hod-ece, hod-eee, hod-mech, hod-civil</li>
+                <li><strong>Faculty:</strong> faculty-cse-1, faculty-cse-2, faculty-ece-1, faculty-ece-2, faculty-eee-1, faculty-eee-2, faculty-mech-1, faculty-mech-2, faculty-civil-1, faculty-civil-2</li>
+                <li><strong>Students:</strong> Use any migrated student username from Migration V3</li>
+                <li><strong>Admin:</strong> admin123 / admin@123</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
