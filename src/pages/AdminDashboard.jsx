@@ -122,7 +122,7 @@ function AdminDashboard() {
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h2>Welcome to Admin Dashboard</h2>
+        <h2>Welcome to Dashboard</h2>
         <p>Overview of your feedback management system</p>
       </div>
 
