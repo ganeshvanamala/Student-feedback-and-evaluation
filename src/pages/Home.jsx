@@ -246,8 +246,8 @@ function Home() {
               <p className="hero-kicker">Accredited Digital Campus Experience</p>
               <h1>Student Feedback & Evaluation System</h1>
               <p>
-                Centralized, secure, and actionable feedback workflows for students,
-                faculty, and academic leadership.
+                A centralized, secure, and outcomes-focused feedback platform for
+                students, faculty, and academic leadership.
                 <br /><br />
                 Empowering students | Supporting faculty | Enhancing outcomes
               </p>
