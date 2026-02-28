@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { safeParse } from "../utils/storage";
-
-const flattenForms = (rawForms) =>
-  Object.entries(rawForms || {}).flatMap(([categoryId, value]) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.map((form) => ({ ...form, __categoryId: categoryId }));
-    return [{ ...value, __categoryId: categoryId }];
-  });
+import { filterByCategory, getScopedComplaintRows, getScopedResponseRowsFromForms } from "../domain/selectors";
+import { getCurrentUser } from "../auth/session";
 
 function AdminResponses() {
   const [allResponses, setAllResponses] = useState([]);
@@ -16,73 +11,27 @@ function AdminResponses() {
   const [replyDrafts, setReplyDrafts] = useState({});
 
   useEffect(() => {
+    const user = getCurrentUser();
     const forms = safeParse("adminForms", {});
-    const formList = flattenForms(forms);
-    let responses = [];
-
-    formList.forEach((form) => {
-      if (form.responses) {
-        form.responses.forEach((response) => {
-          responses.push({
-            id: response.id,
-            category: form.__categoryId,
-            formTitle: form.title,
-            timestamp: response.timestamp,
-            answers: response.answers,
-            questions: form.questions,
-            submittedBy: response.submittedBy || "unknown",
-            contextData: response.contextData || {},
-            replyKey: `response-${response.id}`,
-          });
-        });
-      }
-    });
-
-    setAllResponses(responses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+    setAllResponses(getScopedResponseRowsFromForms(forms, user));
 
     const acadComplaints = safeParse("academicsComplaints", []);
     const sportComplaints = safeParse("sportsComplaints", []);
     const hostelComplaints = safeParse("hostelComplaints", []);
-
-    const allComplaints = [
-      ...acadComplaints.map((c, i) => ({
-        ...c,
-        rowId: `acad-${i}`,
-        storageIndex: i,
-        category: "academics",
-        complaintId: c.complaintId || `academics-${i}`,
-        studentId: c.id || "",
-        submittedBy: c.submittedBy || "unknown",
-      })),
-      ...sportComplaints.map((c, i) => ({
-        ...c,
-        rowId: `sports-${i}`,
-        storageIndex: i,
-        category: "sports",
-        complaintId: c.complaintId || `sports-${i}`,
-        studentId: c.id || "",
-        submittedBy: c.submittedBy || "unknown",
-      })),
-      ...hostelComplaints.map((c, i) => ({
-        ...c,
-        rowId: `hostel-${i}`,
-        storageIndex: i,
-        category: "hostel",
-        complaintId: c.complaintId || `hostel-${i}`,
-        studentId: c.id || "",
-        submittedBy: c.submittedBy || "unknown",
-      })),
-    ];
-
     setComplaints(
-      allComplaints
-        .map((item) => ({ ...item, replyKey: `complaint-${item.category}-${item.complaintId}` }))
-        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      getScopedComplaintRows(
+        {
+          academics: acadComplaints,
+          sports: sportComplaints,
+          hostel: hostelComplaints,
+        },
+        user
+      )
     );
   }, []);
 
-  const filteredResponses = filter === "all" ? allResponses : allResponses.filter((r) => r.category === filter);
-  const filteredComplaints = filter === "all" ? complaints : complaints.filter((c) => c.category === filter);
+  const filteredResponses = filterByCategory(allResponses, filter);
+  const filteredComplaints = filterByCategory(complaints, filter);
 
   const getRatingLabel = (question, value) => {
     if (question.type === "stars") return `${value} star`;

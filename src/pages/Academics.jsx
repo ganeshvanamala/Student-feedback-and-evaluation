@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BTECH_BRANCHES, BTECH_YEARS, getFaculty, getSubjects, initializeAcademicData } from "../utils/academicData";
+import { readJSON } from "../utils/storage";
+import { STORAGE_KEYS } from "../data/keys";
+import { ROLES } from "../auth/roles";
 
 const Academics = () => {
   const navigate = useNavigate();
@@ -16,7 +19,47 @@ const Academics = () => {
   useEffect(() => {
     initializeAcademicData();
     setSubjects(getSubjects());
-    setFacultyData(getFaculty());
+    
+    // Combine faculty from both default faculty and registered faculty users
+    const defaultFacultyList = getFaculty();
+    const registeredUsers = readJSON(STORAGE_KEYS.REGISTERED_USERS, []);
+    const academicSubjects = getSubjects();
+    
+    // Convert registered faculty users to faculty object format
+    const registeredFaculty = registeredUsers
+      .filter((user) => user.role === ROLES.FACULTY)
+      .map((user) => {
+        // Build teaching array from subjectIds by looking up subject info
+        const teaching = (user.subjectIds || []).map((subjectId) => {
+          const subject = academicSubjects.find((s) => s.id === subjectId);
+          return {
+            subjectId,
+            year: subject?.year || 2,
+            section: 1,
+          };
+        });
+        
+        return {
+          id: user.id,
+          name: user.profile?.fullName || user.username,
+          employeeId: user.profile?.employeeId || `FAC-${user.id}`,
+          branch: user.profile?.department 
+            ? user.profile.department.toUpperCase() 
+            : (user.departmentIds?.[0] || "cse").toUpperCase(),
+          departmentId: user.departmentIds?.[0] || "cse",
+          teaching,
+        };
+      });
+    
+    // Combine and deduplicate by faculty ID
+    const combined = [...defaultFacultyList];
+    registeredFaculty.forEach((regFac) => {
+      if (!combined.some((f) => f.id === regFac.id)) {
+        combined.push(regFac);
+      }
+    });
+    
+    setFacultyData(combined);
 
     const onThemeChange = (event) => {
       setTheme(event?.detail || localStorage.getItem("homeTheme") || "light");

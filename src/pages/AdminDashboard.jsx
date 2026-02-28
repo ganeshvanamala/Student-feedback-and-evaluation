@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { safeParse } from "../utils/storage";
-
-const flattenForms = (rawForms) =>
-  Object.entries(rawForms || {}).flatMap(([categoryId, value]) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value.map((form) => ({ ...form, __categoryId: categoryId }));
-    return [{ ...value, __categoryId: categoryId }];
-  });
+import { getCurrentUser } from "../auth/session";
+import { getScopedComplaintRows, getScopedFormsForUser, getScopedResponseRowsFromForms } from "../domain/selectors";
 
 function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -19,21 +14,26 @@ function AdminDashboard() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
+    const user = getCurrentUser();
     // Get form data
     const forms = safeParse("adminForms", {});
-    const formList = flattenForms(forms);
-    const complaints = safeParse("academicsComplaints", []);
+    const formList = getScopedFormsForUser(forms, user);
+    const scopedResponses = getScopedResponseRowsFromForms(forms, user);
+    const scopedComplaints = getScopedComplaintRows(
+      {
+        academics: safeParse("academicsComplaints", []),
+        sports: safeParse("sportsComplaints", []),
+        hostel: safeParse("hostelComplaints", []),
+      },
+      user
+    );
+    const complaints = scopedComplaints.filter((item) => item.category === "academics");
     const hostelComplaints = safeParse("hostelComplaints", []);
     const sportsComplaints = safeParse("sportsComplaints", []);
 
     let formsCount = formList.length;
-    let totalResponses = 0;
-
-    formList.forEach((form) => {
-      totalResponses += form.responses?.length || 0;
-    });
-
-    const totalComplaints = complaints.length + hostelComplaints.length + sportsComplaints.length;
+    const totalResponses = scopedResponses.length;
+    const totalComplaints = scopedComplaints.length;
 
     setStats({
       totalForms: formsCount,
@@ -46,8 +46,9 @@ function AdminDashboard() {
     const notifs = [];
 
     formList.forEach((form) => {
-      if (form.responses && form.responses.length > 0) {
-        const latestResponse = form.responses[form.responses.length - 1];
+      const formResponses = scopedResponses.filter((response) => String(response.formId) === String(form.id));
+      if (formResponses.length > 0) {
+        const latestResponse = formResponses[0];
         notifs.push({
           id: `${form.__categoryId}-${form.id}`,
           type: "form-response",
@@ -66,6 +67,28 @@ function AdminDashboard() {
         message: "New academics complaint submitted",
         time: latestComplaint.date,
         category: "academics",
+      });
+    }
+
+    if (sportsComplaints.length > 0 && user.role === "admin") {
+      const latestComplaint = sportsComplaints[sportsComplaints.length - 1];
+      notifs.push({
+        id: "sports-complaint",
+        type: "complaint",
+        message: "New sports complaint submitted",
+        time: latestComplaint.date,
+        category: "sports",
+      });
+    }
+
+    if (hostelComplaints.length > 0 && user.role === "admin") {
+      const latestComplaint = hostelComplaints[hostelComplaints.length - 1];
+      notifs.push({
+        id: "hostel-complaint",
+        type: "complaint",
+        message: "New hostel complaint submitted",
+        time: latestComplaint.date,
+        category: "hostel",
       });
     }
 

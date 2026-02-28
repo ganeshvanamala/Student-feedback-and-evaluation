@@ -1,12 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormViewer from "./FormViewer";
-
-const normalizeCategoryForms = (allForms, categoryId) => {
-  const value = allForms?.[categoryId];
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-};
+import { getEligibleFormsForStudent, getFormsForCategory } from "../domain/selectors";
 
 function CategoryFeedback({ categoryId, categoryName }) {
   const [forms] = useState(() => {
@@ -19,35 +14,14 @@ function CategoryFeedback({ categoryId, categoryName }) {
   const location = useLocation();
   const contextData = location.state || {};
   const formsForCategory = useMemo(
-    () => normalizeCategoryForms(forms, categoryId).sort((a, b) => (b.id || 0) - (a.id || 0)),
+    () => getFormsForCategory(forms, categoryId),
     [forms, categoryId]
   );
   const hasAcademicContext = Number(contextData?.year || 0) > 0 && !!contextData?.subjectId;
-
-  const isEligibleForAcademicForm = (form) => {
-    if (categoryId !== "academics" || !form) return true;
-    const studentYear = Number(contextData?.year || 0);
-    const targetYear = Number(form.targetYear || 0);
-
-    if (targetYear > 0 && studentYear !== targetYear) return false;
-
-    if (form.targetSubjectId || form.targetSubjectCode || form.targetSubjectName) {
-      const byId = !!contextData?.subjectId && !!form.targetSubjectId && contextData.subjectId === form.targetSubjectId;
-      const byCode =
-        !!contextData?.courseCode &&
-        !!form.targetSubjectCode &&
-        String(contextData.courseCode).toUpperCase() === String(form.targetSubjectCode).toUpperCase();
-      const byName =
-        !!contextData?.course &&
-        !!form.targetSubjectName &&
-        String(contextData.course).trim().toLowerCase() === String(form.targetSubjectName).trim().toLowerCase();
-      return byId || byCode || byName;
-    }
-
-    return form.sendToAll !== false;
-  };
-
-  const eligibleForms = formsForCategory.filter((form) => isEligibleForAcademicForm(form));
+  const eligibleForms = useMemo(
+    () => getEligibleFormsForStudent(forms, categoryId, contextData),
+    [forms, categoryId, contextData]
+  );
   const needsAcademicSelection = categoryId === "academics" && !hasAcademicContext;
 
   if (selectedFormId) {

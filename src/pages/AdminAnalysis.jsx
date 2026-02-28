@@ -14,6 +14,8 @@ import {
 } from "chart.js";
 import { getFaculty, getSubjects, initializeAcademicData } from "../utils/academicData";
 import { safeParse } from "../utils/storage";
+import { getCurrentUser } from "../auth/session";
+import { getScopedFormsForUser } from "../domain/selectors";
 
 ChartJS.register(
   ArcElement,
@@ -126,10 +128,11 @@ const buildQuestionAnalysis = (question, responses) => {
   };
 };
 
-const buildAnalysis = () => {
+const buildAnalysis = (user) => {
   const rawForms = safeParse("adminForms", {});
+  const scopedForms = getScopedFormsForUser(rawForms, user);
   const sampleForms = safeParse(SAMPLE_FORMS_KEY, []);
-  const forms = [...normalizeForms(rawForms), ...sampleForms].filter(
+  const forms = [...normalizeForms({ scoped: scopedForms }), ...(user.role === "admin" ? sampleForms : [])].filter(
     (form) => CATEGORY_ORDER.includes(form?.category) && Array.isArray(form?.questions)
   );
 
@@ -338,6 +341,7 @@ const generateSampleData = () => {
 };
 
 function AdminAnalysis() {
+  const user = getCurrentUser();
   const [refreshToken, setRefreshToken] = useState(0);
   const [activeCategory, setActiveCategory] = useState("academics");
   const [selectedFormId, setSelectedFormId] = useState(null);
@@ -350,7 +354,7 @@ function AdminAnalysis() {
     setRefreshToken((value) => value + 1);
   }, []);
 
-  const analysis = useMemo(() => buildAnalysis(), [refreshToken]);
+  const analysis = useMemo(() => buildAnalysis(user), [refreshToken, user]);
   const categoryForms = analysis.grouped[activeCategory] || [];
 
   useEffect(() => {
