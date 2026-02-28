@@ -4,17 +4,17 @@ import AdminSidebar from "../components/AdminSidebar";
 import AdminTopbar from "../components/AdminTopbar";
 import "../styles/admin.css";
 
-function AdminPage() {
+function AdminPage({ basePath = "/admin", title = "Admin", menuItems }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   React.useEffect(() => {
-    // Redirect to dashboard if on /admin
-    if (location.pathname === "/admin") {
-      navigate("/admin/dashboard");
+    // Redirect to dashboard if on base path.
+    if (location.pathname === basePath) {
+      navigate(`${basePath}/dashboard`);
     }
-  }, [location.pathname, navigate]);
+  }, [basePath, location.pathname, navigate]);
 
   return (
     <div className={`admin-layout ${sidebarOpen ? "sidebar-open" : ""}`}>
@@ -22,7 +22,13 @@ function AdminPage() {
         className={`admin-overlay ${sidebarOpen ? "show" : ""}`}
         onClick={() => setSidebarOpen(false)}
       ></div>
-      <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <AdminSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        basePath={basePath}
+        title={title}
+        menuItems={menuItems}
+      />
       <div className="admin-right">
         <AdminTopbar onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
         <div className="admin-content">

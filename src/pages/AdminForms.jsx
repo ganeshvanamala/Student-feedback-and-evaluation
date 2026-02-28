@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { getSubjects, initializeAcademicData } from "../utils/academicData";
+import { getCurrentUser } from "../auth/session";
+import { canCreateForm } from "../auth/accessControl";
+import { ROLES } from "../auth/roles";
+import { getScopedFormsForUser } from "../domain/selectors";
 import academicsLightImg from "../assets/acadamics.jpg";
 import academicsDarkImg from "../assets/acadamics dark.png";
 import sportsLightImg from "../assets/sports.png";
@@ -44,6 +48,7 @@ function QuestionBuilder({
   targetSubjectId,
   setTargetSubjectId,
   titleRef,
+  canSendToAll,
 }) {
   const ratingTypes = [
     { value: "stars", label: "5-Star Rating" },
@@ -79,23 +84,25 @@ function QuestionBuilder({
           {activeCategory === "academics" && (
             <div className="form-group">
               <label>Send Form To:</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={sendToAll}
-                    onChange={(e) => {
-                      setSendToAll(e.target.checked);
-                      if (e.target.checked) setTargetSubjectId("");
-                    }}
-                  />
-                  Send To All Students
-                </label>
-              </div>
+              {canSendToAll && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={sendToAll}
+                      onChange={(e) => {
+                        setSendToAll(e.target.checked);
+                        if (e.target.checked) setTargetSubjectId("");
+                      }}
+                    />
+                    Send To All Students
+                  </label>
+                </div>
+              )}
               <select
                 value={targetSubjectId}
                 onChange={(e) => setTargetSubjectId(e.target.value)}
-                disabled={sendToAll}
+                disabled={canSendToAll ? sendToAll : false}
                 className="question-type"
               >
                 <option value="">Select Subject</option>
@@ -197,11 +204,23 @@ function AdminForms() {
   const [sendToAll, setSendToAll] = useState(true);
   const [targetSubjectId, setTargetSubjectId] = useState("");
   const [theme, setTheme] = useState(() => localStorage.getItem("homeTheme") || "light");
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const titleRef = useRef(null);
+  const isFacultyUser = currentUser.role === ROLES.FACULTY;
+  const canSendToAll = !isFacultyUser;
 
   useEffect(() => {
     initializeAcademicData();
-    setSubjects(getSubjects());
+    const user = getCurrentUser();
+    setCurrentUser(user);
+    const allSubjects = getSubjects();
+    const visibleSubjects =
+      user.role === ROLES.HOD && Array.isArray(user.departmentIds) && user.departmentIds.length
+        ? allSubjects.filter((subject) => user.departmentIds.includes(subject.departmentId))
+        : user.role === ROLES.FACULTY && Array.isArray(user.subjectIds) && user.subjectIds.length
+          ? allSubjects.filter((subject) => user.subjectIds.includes(subject.id))
+        : allSubjects;
+    setSubjects(visibleSubjects);
   }, []);
 
   useEffect(() => {
@@ -226,7 +245,7 @@ function AdminForms() {
     setActiveCategory(categoryId);
     setFormTitle("");
     setQuestions([]);
-    setSendToAll(true);
+    setSendToAll(canSendToAll);
     setTargetSubjectId("");
     setShowBuilder(true);
     setTimeout(() => titleRef.current?.focus(), 0);
@@ -255,10 +274,11 @@ function AdminForms() {
     }
 
     let targetSubject = null;
-    if (activeCategory === "academics" && !sendToAll) {
+    const requiresSubjectScope = currentUser.role === ROLES.FACULTY || (activeCategory === "academics" && !sendToAll);
+    if (activeCategory === "academics" && requiresSubjectScope) {
       targetSubject = subjects.find((subject) => subject.id === targetSubjectId);
       if (!targetSubject) {
-        alert("Choose subject or enable Send To All.");
+        alert("Choose a subject.");
         return;
       }
     }
@@ -270,13 +290,55 @@ function AdminForms() {
       questions,
       createdAt: new Date().toLocaleDateString(),
       responses: [],
-      sendToAll: activeCategory === "academics" ? sendToAll : true,
+      createdByUserId: currentUser.id,
+      createdByRole: currentUser.role,
+      sendToAll: activeCategory === "academics" ? (canSendToAll ? sendToAll : false) : true,
       targetSubjectId: targetSubject?.id || "",
       targetSubjectCode: targetSubject?.code || "",
       targetSubjectName: targetSubject?.name || "",
       targetYear: targetSubject?.year || "",
       targetBranch: targetSubject?.branch || "",
+      departmentId: targetSubject?.departmentId || currentUser.departmentIds?.[0] || "",
+      departmentIds: targetSubject?.departmentId
+        ? [targetSubject.departmentId]
+        : currentUser.departmentIds || [],
+      scopeType:
+        activeCategory === "academics"
+          ? canSendToAll
+            ? sendToAll
+              ? "department"
+              : "subject"
+            : "subject"
+          : currentUser.role === ROLES.FACULTY
+            ? "subject"
+            : "department",
+      scopeIds:
+        activeCategory === "academics"
+          ? sendToAll
+            ? currentUser.departmentIds || []
+            : targetSubject?.id
+              ? [targetSubject.id]
+              : []
+          : currentUser.role === ROLES.FACULTY
+            ? targetSubject?.id
+              ? [targetSubject.id]
+              : []
+            : currentUser.departmentIds || [],
     };
+
+    if (currentUser.role === ROLES.HOD || currentUser.role === ROLES.FACULTY) {
+      const allowed = canCreateForm(currentUser, {
+        scopeType: newForm.scopeType,
+        scopeIds: newForm.scopeIds,
+        departmentIds: newForm.departmentIds,
+        departmentId: newForm.departmentId,
+        targetSubjectId: newForm.targetSubjectId,
+      });
+      if (!allowed) {
+        alert("You do not have permission to create this form scope.");
+        return;
+      }
+    }
 
     const next = {
       ...formsByCategory,
@@ -319,6 +381,7 @@ function AdminForms() {
           targetSubjectId={targetSubjectId}
           setTargetSubjectId={setTargetSubjectId}
           titleRef={titleRef}
+          canSendToAll={canSendToAll}
         />
       )}
 
@@ -328,13 +391,14 @@ function AdminForms() {
       </div>
 
       <div className="categories-grid">
-        {CATEGORY_LIST.map((category) => {
+        {CATEGORY_LIST.filter((category) => (isFacultyUser ? category.id === "academics" : true)).map((category) => {
           const categoryForms = formsByCategory[category.id] || [];
+          const scopedForms = getScopedFormsForUser({ [category.id]: categoryForms }, currentUser, category.id);
           const cardImage = theme === "dark" ? category.imageDark : category.imageLight;
           return (
             <div key={category.id} className="category-card">
               <img src={cardImage} alt={category.label} className="category-image" />
-              <p className="form-meta">{categoryForms.length} total form(s)</p>
+              <p className="form-meta">{scopedForms.length} total form(s)</p>
               <div className="form-actions">
                 <button className="btn-small btn-primary" onClick={() => openCreate(category.id)}>
                   Create
@@ -349,10 +413,10 @@ function AdminForms() {
 
               {showHistoryFor === category.id && (
                 <div className="forms-history-list">
-                  {!categoryForms.length ? (
+                  {!scopedForms.length ? (
                     <p className="form-meta">No forms created yet.</p>
                   ) : (
-                    categoryForms.map((form) => (
+                    scopedForms.map((form) => (
                       <div key={form.id} className="history-item">
                         <div>
                           <p className="form-title">{form.title}</p>

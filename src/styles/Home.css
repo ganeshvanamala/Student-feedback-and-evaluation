@@ -1,5 +1,3 @@
-/* Home.css */
-
 body {
   margin: 0;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -19,14 +17,13 @@ body {
   --page-bg: url("../assets/images.jpg");
   --main-text: #ffffff;
   --main-shadow: rgba(0, 0, 0, 0.6);
-  --nav-bg: rgba(255, 255, 255, 0.8);
+  --nav-bg: rgba(255, 255, 255, 0.86);
   --nav-text: #003366;
   --link-hover: #2196f3;
-  --card-bg: rgba(255, 255, 255, 0.85);
-  --card-title: #003366;
-  --input-bg: #ffffff;
-  --input-border: #cccccc;
-  --footer-bg: rgba(255, 255, 255, 0.8);
+  --card-title: #10386d;
+  --input-bg: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(130, 156, 192, 0.65);
+  --footer-bg: rgba(255, 255, 255, 0.86);
   --footer-text: #003366;
   --panel-bg: rgba(255, 255, 255, 0.95);
   --panel-text: #333333;
@@ -34,25 +31,31 @@ body {
   --divider: #eeeeee;
   --contact-bg: #f5f5f5;
   --contact-muted: #666666;
-  --login-btn-bg: #2196f3;
-  --login-btn-hover: #0b79d0;
+  --login-btn-bg: #1e66d0;
+  --login-btn-hover: #124fae;
   --register-bg: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
   --register-shadow: rgba(76, 175, 80, 0.4);
   --social-bg: #2196f3;
   --social-hover: #1976d2;
+  --hero-overlay: rgba(0, 0, 0, 0.55);
+  --hero-panel-border: rgba(255, 255, 255, 0.3);
+  --glass-bg: rgba(255, 255, 255, 0.24);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --form-label: #10386d;
+  --input-text: #0e213f;
+  --message-text: #c62828;
 }
 
 .page-wrapper.theme-dark {
   --page-bg: url("../assets/darkmode.png");
   --main-text: #f4e6b0;
   --main-shadow: rgba(0, 0, 0, 0.7);
-  --nav-bg: linear-gradient(90deg, rgba(199, 165, 132, 0.92) 0%, rgba(214, 182, 150, 0.9) 50%, rgba(199, 165, 132, 0.92) 100%);
+  --nav-bg: rgba(20, 20, 22, 0.86);
   --nav-text: #d4af37;
   --link-hover: #ffd166;
-  --card-bg: rgba(20, 20, 20, 0.92);
-  --card-title: #d4af37;
-  --input-bg: #0f0f0f;
-  --input-border: #8c6a1d;
+  --card-title: #f2d47c;
+  --input-bg: rgba(17, 21, 29, 0.72);
+  --input-border: rgba(212, 175, 55, 0.45);
   --footer-bg: rgba(10, 10, 10, 0.9);
   --footer-text: #d4af37;
   --panel-bg: rgba(18, 18, 18, 0.95);
@@ -67,9 +70,15 @@ body {
   --register-shadow: rgba(212, 175, 55, 0.45);
   --social-bg: #b8860b;
   --social-hover: #d4af37;
+  --hero-overlay: rgba(0, 0, 0, 0.55);
+  --hero-panel-border: rgba(212, 175, 55, 0.35);
+  --glass-bg: rgba(10, 14, 22, 0.5);
+  --glass-border: rgba(212, 175, 55, 0.4);
+  --form-label: #f1d889;
+  --input-text: #f4e6b0;
+  --message-text: #ff9f9f;
 }
 
-/* Navbar */
 nav {
   background: var(--nav-bg);
   backdrop-filter: blur(8px);
@@ -87,7 +96,7 @@ nav {
   border-bottom: 1px solid rgba(120, 92, 64, 0.45);
   box-shadow:
     0 2px 14px rgba(0, 0, 0, 0.35),
-    inset 0 -1px 0 rgba(255, 236, 211, 0.35);
+    inset 0 -1px 0 rgba(255, 236, 211, 0.25);
 }
 
 nav .logo {
@@ -102,8 +111,9 @@ nav .logo img {
 
 nav .logo h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
   color: var(--nav-text);
 }
 
@@ -116,36 +126,24 @@ nav ul {
   padding: 0;
 }
 
-nav ul li {
-  margin-left: 0;
-}
-
 nav ul li a {
   text-decoration: none;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--nav-text);
-  transition: color 0.3s ease;
+  padding: 8px 12px;
+  border-radius: 999px;
+  transition: color 0.3s ease, background-color 0.3s ease;
 }
 
 nav ul li a:hover {
   color: var(--link-hover);
+  background: rgba(255, 255, 255, 0.25);
 }
 
-.page-wrapper.theme-dark nav .logo h2,
-.page-wrapper.theme-dark nav ul li a,
-.page-wrapper.theme-dark .theme-toggle-btn {
-  color: #d4af37 !important;
-}
-
-.page-wrapper.theme-dark .theme-toggle-btn {
-  border-color: #d4af37;
-}
-
-.page-wrapper.theme-dark nav ul li a:hover,
-.page-wrapper.theme-dark .theme-toggle-btn:hover {
-  background: #d4af37;
-  color: #111111 !important;
+.page-wrapper.theme-dark nav ul li a:hover {
+  background: rgba(212, 175, 55, 0.12);
 }
 
 .theme-toggle-btn {
@@ -165,120 +163,167 @@ nav ul li a:hover {
   color: var(--nav-bg);
 }
 
-/* Main Layout */
 .main {
   flex: 1;
   display: flex;
-  justify-content: space-between;
-  padding: 40px 60px;
+  gap: 24px;
+  padding: 28px;
   color: var(--main-text);
 }
 
-/* Center Title */
 .center {
-  flex: 1.2;
+  flex: 1.1;
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--hero-panel-border);
+  background: var(--page-bg) center center / cover no-repeat;
+  min-height: 62vh;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--hero-overlay);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding-right: 30px;
+  height: 100%;
+  padding: 40px;
 }
 
-.center h1 {
-  font-size: 52px;
-  font-weight: bold;
-  margin-bottom: 20px;
+.hero-kicker {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 16px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  padding: 7px 12px;
+}
+
+.page-wrapper.theme-dark .hero-kicker {
+  color: #f7df9c;
+  background: rgba(212, 175, 55, 0.12);
+  border-color: rgba(212, 175, 55, 0.35);
+}
+
+.hero-content h1 {
+  font-size: clamp(34px, 4.4vw, 52px);
+  font-weight: 700;
+  line-height: 1.08;
+  margin: 0 0 18px;
   text-shadow: 3px 3px 10px var(--main-shadow);
 }
 
-.center p {
-  font-size: 20px;
-  line-height: 1.5;
+.hero-content p {
+  font-size: clamp(16px, 2.1vw, 20px);
+  line-height: 1.6;
+  opacity: 0.98;
   text-shadow: 2px 2px 6px var(--main-shadow);
+  max-width: 700px;
 }
 
-/* Right Login Card */
 .right {
-  flex: 0.8;
+  flex: 0.9;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .login-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  padding: 30px;
-  border-radius: 15px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  width: 350px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 28px;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--glass-border);
+  width: min(420px, 100%);
 }
 
 .page-wrapper.theme-dark .login-card {
-  border: 1.8px solid #d4af37;
-  box-shadow:
-    0 0 10px rgba(212, 175, 55, 0.45),
-    0 0 22px rgba(212, 175, 55, 0.28),
-    0 10px 25px rgba(0, 0, 0, 0.45);
-  animation: goldShine 2.2s ease-in-out infinite alternate;
-}
-
-@keyframes goldShine {
-  from {
-    box-shadow:
-      0 0 8px rgba(212, 175, 55, 0.35),
-      0 0 16px rgba(212, 175, 55, 0.2),
-      0 10px 25px rgba(0, 0, 0, 0.45);
-  }
-  to {
-    box-shadow:
-      0 0 14px rgba(255, 215, 85, 0.58),
-      0 0 30px rgba(212, 175, 55, 0.38),
-      0 10px 28px rgba(0, 0, 0, 0.5);
-  }
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
 }
 
 .login-card h2 {
-  margin-bottom: 20px;
+  margin: 0 0 16px;
   color: var(--card-title);
-  text-align: center;
+  text-align: left;
+  font-size: 26px;
+}
+
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .login-card label {
   display: block;
-  margin-top: 10px;
-  font-weight: bold;
-  color: var(--card-title);
+  margin: 0;
+  font-weight: 600;
+  color: var(--form-label);
+  font-size: 14px;
 }
 
-.login-card input {
+.login-card input,
+.role-select {
   width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  border-radius: 5px;
+  height: 45px;
+  padding: 0 12px;
+  border-radius: 8px;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
-  color: var(--panel-text);
+  color: var(--input-text);
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.login-card input:focus,
+.role-select:focus {
+  outline: none;
+  border-color: var(--login-btn-bg);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+.captcha-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 45px;
 }
 
 .login-btn {
-  margin-top: 15px;
+  margin-top: 16px;
   width: 100%;
   background: var(--login-btn-bg);
   color: white;
   font-size: 16px;
-  padding: 10px;
-  border-radius: 5px;
+  height: 45px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.login-btn + .login-btn {
-  margin-top: 10px;
+  transition: background 0.25s ease, transform 0.25s ease;
 }
 
 .login-btn:hover {
   background: var(--login-btn-hover);
+  transform: translateY(-1px);
 }
 
 .register-btn {
@@ -287,12 +332,12 @@ nav ul li a:hover {
   background: var(--register-bg);
   color: white;
   font-size: 16px;
-  padding: 10px;
-  border-radius: 5px;
+  height: 45px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .register-btn:hover {
@@ -302,11 +347,12 @@ nav ul li a:hover {
 
 #loginMessage {
   margin-top: 10px;
-  font-weight: bold;
-  text-align: center;
+  font-weight: 700;
+  text-align: left;
+  color: var(--message-text);
+  min-height: 20px;
 }
 
-/* Footer */
 footer {
   background: var(--footer-bg);
   backdrop-filter: blur(6px);
@@ -317,7 +363,6 @@ footer {
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
 }
 
-/* About & Contact Pages */
 .page-content {
   flex: 1;
   padding: 40px 20px;
@@ -465,21 +510,28 @@ footer {
   background: var(--social-hover);
 }
 
-/* Responsive adjustments */
 @media (max-width: 900px) {
   .main {
     flex-direction: column;
-    padding: 30px;
-    gap: 30px;
+    padding: 18px;
+    gap: 24px;
   }
 
-  .center h1 {
+  .hero-panel {
+    min-height: 50vh;
+  }
+
+  .hero-content {
+    padding: 26px;
+  }
+
+  .hero-content h1 {
     font-size: 36px;
   }
 
   .login-card {
     width: 100%;
-    max-width: 420px;
+    max-width: 500px;
   }
 
   nav {
@@ -523,16 +575,20 @@ footer {
     gap: 20px;
   }
 
-  .center {
-    padding-right: 0;
+  .hero-panel {
+    min-height: 44vh;
   }
 
-  .center h1 {
+  .hero-content {
+    padding: 20px;
+  }
+
+  .hero-content h1 {
     font-size: 42px;
     line-height: 1.15;
   }
 
-  .center p {
+  .hero-content p {
     font-size: 18px;
   }
 
@@ -567,11 +623,11 @@ footer {
     font-size: 12px;
   }
 
-  .center h1 {
+  .hero-content h1 {
     font-size: 34px;
   }
 
-  .center p {
+  .hero-content p {
     font-size: 16px;
   }
 
@@ -585,5 +641,3 @@ footer {
     font-size: 20px;
   }
 }
-
-

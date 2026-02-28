@@ -4,11 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { Captcha } from "../components/Captcha";
 import { safeParse } from "../utils/storage";
 import logo from "../assets/logo.svg";
+import { setSession } from "../auth/session";
+import { ROLES } from "../auth/roles";
 
 function Home() {
   const navigate = useNavigate();
   const [loginId, setLoginId] = useState("");
   const [loginPass, setLoginPass] = useState("");
+  const [selectedRole, setSelectedRole] = useState("student");
   const [loginMessage, setLoginMessage] = useState("");
   const [currentView, setCurrentView] = useState("home"); // 'home', 'about', 'contact'
   const [captchaVerified, setCaptchaVerified] = useState(false);
@@ -31,7 +34,6 @@ function Home() {
 
   const credentials = {
     admin: { id: "admin123", pass: "admin@123" },
-    student: { id: "student123", pass: "student@123" },
   };
 
   const login = (type) => {
@@ -40,21 +42,51 @@ function Home() {
       return;
     }
 
-    if (type === "student") {
-      // Check registered users for student login
+    if (type === "student" || type === "hod" || type === "faculty") {
+      // Check registered users for role-based login
       const registeredUsers = safeParse("registeredUsers", []);
       const user = registeredUsers.find(u => u.username === loginId && u.password === loginPass);
       
       if (user) {
-        localStorage.setItem("currentStudent", user.username);
+        const role = user.role || ROLES.STUDENT;
+        const requestedRole = type;
+        const isLegacyStudent = requestedRole === "student" && (!user.role || role === ROLES.STUDENT);
+        const isExactRoleMatch = role === requestedRole;
+        if (!(isLegacyStudent || isExactRoleMatch)) {
+          setLoginMessage(`This account is not a ${requestedRole.toUpperCase()} account.`);
+          return;
+        }
+
+        setSession({
+          ...user,
+          id: user.id || user.username,
+          username: user.username,
+          role,
+          departmentIds: user.departmentIds || user.departmentId || user.profile?.department || [],
+          subjectIds: user.subjectIds || user.subjectId || [],
+        });
         setLoginMessage("");
-        navigate("/student");
+        if (role === ROLES.HOD) {
+          navigate("/hod");
+        } else if (role === ROLES.FACULTY) {
+          navigate("/faculty");
+        } else if (role === ROLES.ADMIN) {
+          navigate("/admin");
+        } else {
+          navigate("/student");
+        }
       } else {
         setLoginMessage("Invalid ID or Password!");
       }
     } else {
       // Admin login uses hardcoded credentials
       if (loginId === credentials[type].id && loginPass === credentials[type].pass) {
+        setSession({
+          id: credentials[type].id,
+          username: credentials[type].id,
+          role: ROLES.ADMIN,
+          permissions: ["*"],
+        });
         navigate(type === "admin" ? "/admin" : "/student");
       } else {
         setLoginMessage("Invalid ID or Password!");
@@ -68,11 +100,11 @@ function Home() {
       <nav>
         <div className="logo">
           <img src={logo} alt="Logo" />
-          <h2>Student Feedback</h2>
+          <h2>University Feedback Portal</h2>
         </div>
         <ul>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); setCurrentView("about"); }}>AboutUs</a></li>
-          <li><a href="#" onClick={(e) => { e.preventDefault(); setCurrentView("contact"); }}>ContactUs</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); setCurrentView("about"); }}>About Us</a></li>
+          <li><a href="#" onClick={(e) => { e.preventDefault(); setCurrentView("contact"); }}>Contact Us</a></li>
         </ul>
       </nav>
 
@@ -194,28 +226,65 @@ function Home() {
       {/* Show Home Page */}
       {currentView === "home" && (
         <div className="main">
-          <div className="center">
-            <h1>Student Feedback & Evaluation System 🎓</h1>
-            <p>
-              A transparent and efficient platform for students to share their feedback,
-              and for institutions to gain valuable insights for continuous improvement.
-              <br /><br />
-              Empowering students ✨ | Supporting faculty 📘 | Enhancing academics 📊
-            </p>
+          <div className="center hero-panel">
+            <div className="hero-overlay" />
+            <div className="hero-content">
+              <p className="hero-kicker">Accredited Digital Campus Experience</p>
+              <h1>Student Feedback & Evaluation System</h1>
+              <p>
+                Centralized, secure, and actionable feedback workflows for students,
+                faculty, and academic leadership.
+                <br /><br />
+                Empowering students | Supporting faculty | Enhancing outcomes
+              </p>
+            </div>
           </div>
 
         <div className="right">
           <div className="login-card">
-            <h2>Login</h2>
-            <label>ID:</label>
-            <input type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="Enter ID" />
-            <label>Password:</label>
-            <input type="password" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Enter Password" />
-            <Captcha onVerify={setCaptchaVerified} theme={theme} />
-            
-            <button onClick={() => login("student")} className="login-btn">Student Login</button>
-            <button onClick={() => login("admin")} className="login-btn">Admin Login</button>
-            <p id="loginMessage" style={{ color: "red" }}>{loginMessage}</p>
+            <h2>University Portal Login</h2>
+
+            <div className="form-stack">
+              <label htmlFor="roleSelect">Role</label>
+              <select
+                id="roleSelect"
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="role-select"
+              >
+                <option value="student">Student</option>
+                <option value="hod">HOD</option>
+                <option value="faculty">Faculty</option>
+                <option value="admin">Admin</option>
+              </select>
+
+              <label htmlFor="loginId">ID</label>
+              <input
+                id="loginId"
+                type="text"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="Enter ID"
+              />
+
+              <label htmlFor="loginPass">Password</label>
+              <input
+                id="loginPass"
+                type="password"
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="Enter Password"
+              />
+
+              <div className="captcha-row">
+                <Captcha onVerify={setCaptchaVerified} theme={theme} />
+              </div>
+            </div>
+
+            <button onClick={() => login(selectedRole)} className="login-btn">
+              Login as {selectedRole.toUpperCase()}
+            </button>
+            <p id="loginMessage">{loginMessage}</p>
             <button onClick={() => navigate("/register")} className="register-btn">Register</button>
           </div>
         </div>

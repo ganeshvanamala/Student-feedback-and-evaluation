@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Student.css";
+import {
+  countStudentComplaints,
+  countStudentSubmittedFeedback,
+  getAvailableFormsForStudent,
+  getStudentRepliesForUser,
+} from "../domain/selectors";
 
 const parseJSON = (key, fallback) => {
   try {
@@ -10,12 +16,6 @@ const parseJSON = (key, fallback) => {
     return fallback;
   }
 };
-
-const flattenForms = (rawForms) =>
-  Object.values(rawForms || {}).flatMap((entry) => {
-    if (!entry) return [];
-    return Array.isArray(entry) ? entry : [entry];
-  });
 
 const Student = () => {
   const navigate = useNavigate();
@@ -56,27 +56,22 @@ const Student = () => {
     });
 
     const adminForms = parseJSON("adminForms", {});
-    const availableForms = flattenForms(adminForms).sort((a, b) => (b.id || 0) - (a.id || 0));
+    const availableForms = getAvailableFormsForStudent(adminForms);
     setForms(availableForms);
 
     const allReplies = parseJSON("studentReplies", []);
-    const myReplies = allReplies
-      .filter((reply) => reply.targetUser === currentStudent)
-      .sort((a, b) => (b.id || 0) - (a.id || 0));
+    const myReplies = getStudentRepliesForUser(allReplies, currentStudent);
     setReplies(myReplies);
 
-    let feedbackCount = 0;
-    flattenForms(adminForms).forEach((form) => {
-      (form.responses || []).forEach((response) => {
-        if (response.submittedBy === currentStudent) feedbackCount += 1;
-      });
-    });
-
-    const complaintsCount = [
-      ...parseJSON("academicsComplaints", []),
-      ...parseJSON("sportsComplaints", []),
-      ...parseJSON("hostelComplaints", []),
-    ].filter((item) => item.submittedBy === currentStudent).length;
+    const feedbackCount = countStudentSubmittedFeedback(adminForms, currentStudent);
+    const complaintsCount = countStudentComplaints(
+      {
+        academics: parseJSON("academicsComplaints", []),
+        sports: parseJSON("sportsComplaints", []),
+        hostel: parseJSON("hostelComplaints", []),
+      },
+      currentStudent
+    );
 
     setStats({
       submittedFeedback: feedbackCount,
