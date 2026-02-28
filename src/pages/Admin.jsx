@@ -32,7 +32,7 @@ function Admin() {
 
   return (
     <div className="page-card">
-      <h1>Admin Dashboard</h1>
+      <h1>Dashboard</h1>
       <div className="action-buttons">
         <button onClick={() => setTab("academics")}>Academics</button>
         <button onClick={() => setTab("hostel")}>Hostel</button>

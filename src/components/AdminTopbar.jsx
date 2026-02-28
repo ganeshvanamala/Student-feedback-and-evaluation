@@ -11,7 +11,7 @@ function AdminTopbar({ onMenuToggle }) {
         <button className="admin-menu-btn" onClick={onMenuToggle}>
           Menu
         </button>
-        <h1>Admin Dashboard</h1>
+        <h1>Dashboard</h1>
       </div>
       <div className="topbar-right">
         <span className="topbar-datetime">
