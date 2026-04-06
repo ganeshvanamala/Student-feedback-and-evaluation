@@ -4,8 +4,7 @@ import { ROLES } from "../auth/roles";
 import { canCreateUser } from "../auth/accessControl";
 import { DEPARTMENTS, getDepartmentNameById } from "../utils/departments";
 import { getSubjects, initializeAcademicData } from "../utils/academicData";
-import { readJSON, writeJSON } from "../utils/storage";
-import { STORAGE_KEYS } from "../data/keys";
+import { getUsers, registerUser } from "../api/usersApi";
 
 const emptyForm = {
   fullName: "",
@@ -17,6 +16,12 @@ const emptyForm = {
   subjectIds: [],
 };
 
+const toArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return [value];
+};
+
 function UserManagement() {
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [subjects, setSubjects] = useState([]);
@@ -24,15 +29,29 @@ function UserManagement() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    initializeAcademicData();
-    setCurrentUser(getCurrentUser());
-    setSubjects(getSubjects());
-    setUsers(readJSON(STORAGE_KEYS.REGISTERED_USERS, []));
+    const load = async () => {
+      await initializeAcademicData();
+      setCurrentUser(getCurrentUser());
+      setSubjects(await getSubjects());
+      try {
+        setUsers(await getUsers());
+      } catch (error) {
+        console.error("API FAILED", error);
+        setUsers([]);
+      }
+    };
+    load();
   }, []);
 
   const isAdmin = currentUser.role === ROLES.ADMIN;
   const isHod = currentUser.role === ROLES.HOD;
   const targetRole = isAdmin ? ROLES.HOD : ROLES.FACULTY;
+
+  const isCreatedByCurrentUser = (user) => {
+    const createdBy = user?.createdByUserId;
+    if (!createdBy) return false;
+    return String(createdBy) === String(currentUser.id) || String(createdBy) === String(currentUser.username);
+  };
 
   const availableDepartments = useMemo(() => {
     if (isAdmin) return DEPARTMENTS;
@@ -50,15 +69,28 @@ function UserManagement() {
   );
 
   const createdUsers = useMemo(() => {
-    if (isAdmin) return users.filter((user) => user.role === ROLES.HOD);
-    if (isHod) {
-      const allowed = new Set(currentUser.departmentIds || []);
-      return users.filter(
-        (user) => user.role === ROLES.FACULTY && (user.departmentIds || []).some((id) => allowed.has(id))
-      );
+    if (isAdmin) {
+      return users.filter((user) => String(user.role || "").toLowerCase() === ROLES.HOD);
     }
+
+    if (isHod) {
+      return users.filter((user) => String(user.role || "").toLowerCase() === ROLES.FACULTY && isCreatedByCurrentUser(user));
+    }
+
     return [];
-  }, [currentUser.departmentIds, isAdmin, isHod, users]);
+  }, [isAdmin, isHod, users]);
+
+  const visibleUsers = useMemo(() => {
+    if (isAdmin) {
+      return users.filter((user) => String(user.role || "").toLowerCase() !== ROLES.ADMIN);
+    }
+
+    if (isHod) {
+      return createdUsers;
+    }
+
+    return [];
+  }, [isAdmin, isHod, users, createdUsers]);
 
   const handleSubjectToggle = (subjectId) => {
     setForm((prev) => {
@@ -69,7 +101,7 @@ function UserManagement() {
     });
   };
 
-  const handleCreate = (event) => {
+  const handleCreate = async (event) => {
     event.preventDefault();
 
     if (!form.username.trim() || !form.password.trim() || !form.fullName.trim()) {
@@ -94,18 +126,17 @@ function UserManagement() {
     }
 
     const newUser = {
-      id: `${targetRole}-${Date.now()}`,
       username: form.username.trim(),
       password: form.password,
       role: targetRole,
+      departmentId,
       departmentIds: [departmentId],
       subjectIds: targetRole === ROLES.FACULTY ? form.subjectIds : [],
-      profile: {
-        fullName: form.fullName.trim(),
-        employeeId: form.employeeId.trim(),
-        email: form.email.trim(),
-        department: getDepartmentNameById(departmentId, departmentId.toUpperCase()),
-      },
+      fullName: form.fullName.trim(),
+      employeeId: form.employeeId.trim(),
+      email: form.email.trim(),
+      createdByUserId: String(currentUser.id || currentUser.username || ""),
+      createdByRole: String(currentUser.role || ""),
     };
 
     const allowed = canCreateUser(currentUser, {
@@ -119,11 +150,15 @@ function UserManagement() {
       return;
     }
 
-    const nextUsers = [...users, newUser];
-    setUsers(nextUsers);
-    writeJSON(STORAGE_KEYS.REGISTERED_USERS, nextUsers);
-    setForm((prev) => ({ ...emptyForm, departmentId: isAdmin ? "" : prev.departmentId }));
-    alert(`${targetRole.toUpperCase()} account created.`);
+    try {
+      await registerUser(newUser);
+      setUsers(await getUsers());
+      setForm((prev) => ({ ...emptyForm, departmentId: isAdmin ? "" : prev.departmentId }));
+      alert(`${targetRole.toUpperCase()} account created.`);
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Unable to create user.");
+    }
   };
 
   if (!isAdmin && !isHod) {
@@ -217,26 +252,44 @@ function UserManagement() {
         </div>
       </form>
 
+      <div className="forms-header" style={{ marginTop: 20 }}>
+        <h2>{isHod ? "Accounts Created By You" : "Registered Accounts"}</h2>
+        <p>Total visible accounts: {visibleUsers.length}</p>
+      </div>
+
       <div className="subject-cards-grid">
-        {createdUsers.map((user) => (
-          <article key={user.id} className="subject-card faculty-card">
-            <h3>{user.profile?.fullName || user.username}</h3>
-            <p><strong>Role:</strong> {user.role}</p>
-            <p><strong>Username:</strong> {user.username}</p>
-            <p><strong>Department:</strong> {(user.departmentIds || []).map((id) => getDepartmentNameById(id, id)).join(", ")}</p>
-            {user.role === ROLES.FACULTY && (
+        {visibleUsers.map((user) => {
+          const role = String(user.role || "").toLowerCase();
+          const departmentIds = [...toArray(user.departmentIds), user.departmentId].filter(
+            (value, index, arr) => Boolean(value) && arr.indexOf(value) === index
+          );
+          return (
+            <article key={user.id || user.username} className="subject-card faculty-card">
+              <h3>{user.fullName || user.username}</h3>
+              <p><strong>Role:</strong> {role || "-"}</p>
+              <p><strong>Username:</strong> {user.username || "-"}</p>
+              <p><strong>Email:</strong> {user.email || "-"}</p>
+              <p><strong>Employee ID:</strong> {user.employeeId || "-"}</p>
+              <p><strong>Student ID:</strong> {user.studentId || "-"}</p>
+              <p><strong>Year:</strong> {user.year || "-"}</p>
               <p>
-                <strong>Subjects:</strong>{" "}
-                {(user.subjectIds || [])
-                  .map((subjectId) => {
-                    const subject = subjects.find((item) => item.id === subjectId);
-                    return subject ? `${subject.name} (${subject.code})` : subjectId;
-                  })
-                  .join(", ")}
+                <strong>Department:</strong>{" "}
+                {departmentIds.length ? departmentIds.map((id) => getDepartmentNameById(id, id)).join(", ") : "-"}
               </p>
-            )}
-          </article>
-        ))}
+              {role === ROLES.FACULTY && (
+                <p>
+                  <strong>Subjects:</strong>{" "}
+                  {(user.subjectIds || [])
+                    .map((subjectId) => {
+                      const subject = subjects.find((item) => item.id === subjectId);
+                      return subject ? `${subject.name} (${subject.code})` : subjectId;
+                    })
+                    .join(", ") || "-"}
+                </p>
+              )}
+            </article>
+          );
+        })}
       </div>
     </div>
   );

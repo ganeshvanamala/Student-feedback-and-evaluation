@@ -18,11 +18,15 @@ function Subjects() {
   });
 
   useEffect(() => {
-    initializeAcademicData();
-    setSubjects(getSubjects());
+    const load = async () => {
+      await initializeAcademicData();
+      const data = await getSubjects();
+      setSubjects(data);
+    };
+    load();
   }, []);
 
-  const handleAdd = (event) => {
+  const handleAdd = async (event) => {
     event.preventDefault();
     if (!form.name.trim() || !form.code.trim()) return;
 
@@ -41,15 +45,23 @@ function Subjects() {
 
     const updated = [...subjects, newSubject];
     setSubjects(updated);
-    saveSubjects(updated);
+    try {
+      await saveSubjects(updated);
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
     setForm({ name: "", code: "", branch: "CSE", year: 1 });
   };
 
-  const handleDelete = (subjectId) => {
+  const handleDelete = async (subjectId) => {
     const updated = subjects.filter((subject) => subject.id !== subjectId);
     setSubjects(updated);
-    saveSubjects(updated);
-    removeSubjectFromFaculty(subjectId);
+    try {
+      await saveSubjects(updated);
+      await removeSubjectFromFaculty(subjectId);
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
   };
 
   return (

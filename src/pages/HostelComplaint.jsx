@@ -1,22 +1,38 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
-import { safeParse } from "../utils/storage";
+import { getCurrentUser } from "../auth/session";
+import { createComplaint } from "../api/complaintsApi";
+import { fetchComplaintBlockList } from "../api/complaintBlockApi";
+import { getUsers } from "../api/usersApi";
+import { inferDepartmentId } from "../utils/departments";
 
 function HostelComplaint() {
   const location = useLocation();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { name: stateName, id: stateId, hostel: stateHostel } = location.state || {};
+  const currentUser = getCurrentUser();
+
   const [name, setName] = useState(stateName || "");
   const [id, setId] = useState(stateId || "");
   const [hostel, setHostel] = useState(stateHostel || "");
   const [complaint, setComplaint] = useState("");
+  const [recipientType, setRecipientType] = useState("hod");
+  const [targetHodUsername, setTargetHodUsername] = useState("");
+  const [targetFacultyUsername, setTargetFacultyUsername] = useState("");
+  const [hodOptions, setHodOptions] = useState([]);
+  const [facultyOptions, setFacultyOptions] = useState([]);
   const [theme, setTheme] = useState(() => localStorage.getItem("homeTheme") || "light");
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState({ title: "", message: "", type: "success" });
   const isDark = theme === "dark";
+
+  const departmentId = useMemo(
+    () => inferDepartmentId(currentUser.departmentId || currentUser.departmentIds?.[0] || ""),
+    [currentUser.departmentId, currentUser.departmentIds]
+  );
 
   useEffect(() => {
     const onThemeChange = (event) => {
@@ -33,7 +49,35 @@ function HostelComplaint() {
     };
   }, []);
 
-  // Inline styles
+  useEffect(() => {
+    const loadRecipients = async () => {
+      try {
+        const users = await getUsers();
+        const inDepartment = users.filter((user) => {
+          const userDepartment = inferDepartmentId(user.departmentId || user.departmentIds?.[0] || "");
+          return !departmentId || userDepartment === departmentId;
+        });
+
+        const hods = inDepartment.filter((user) => String(user.role || "").toLowerCase() === "hod");
+        const faculties = inDepartment.filter((user) => String(user.role || "").toLowerCase() === "faculty");
+
+        setHodOptions(hods);
+        setFacultyOptions(faculties);
+
+        if (hods.length > 0) {
+          setTargetHodUsername((prev) => prev || hods[0].username || "");
+        }
+        if (faculties.length > 0) {
+          setTargetFacultyUsername((prev) => prev || faculties[0].username || "");
+        }
+      } catch (error) {
+        console.error("API FAILED", error);
+      }
+    };
+
+    loadRecipients();
+  }, [departmentId]);
+
   const styles = {
     pageCard: {
       background: isDark ? "rgba(23, 28, 37, 0.95)" : "rgba(255, 248, 240, 0.9)",
@@ -95,7 +139,7 @@ function HostelComplaint() {
           : "linear-gradient(135deg, #ff6a00 0%, #ee0979 100%)");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim() || !id.trim() || !hostel.trim()) {
       showToast("Please fill all student details!", "warning");
@@ -105,53 +149,73 @@ function HostelComplaint() {
       showToast("Please enter a complaint!", "warning");
       return;
     }
-    const blocks = safeParse("complaintBlockList", { academics: [], sports: [], hostel: [], categoryBlocked: {} });
-    if (blocks.categoryBlocked && blocks.categoryBlocked.hostel) {
-      setNotificationData({
-        title: "Access Denied",
-        message: "Complaints for Hostel have been disabled by an administrator.",
-        type: "error"
-      });
-      setShowNotification(true);
-      return;
-    }
-    if (id && Array.isArray(blocks.hostel) && blocks.hostel.includes(id)) {
-      setNotificationData({
-        title: "Access Denied",
-        message: "You are blocked from submitting further Hostel complaints.",
-        type: "error"
-      });
-      setShowNotification(true);
+
+    if ((recipientType === "faculty" || recipientType === "both") && !targetFacultyUsername) {
+      showToast("Please select faculty recipient!", "warning");
       return;
     }
 
-    const complaints = safeParse("hostelComplaints", []);
-    complaints.push({
-      complaintId: Date.now(),
-      name,
-      id,
-      hostel,
-      text: complaint,
-      date: new Date().toLocaleString(),
-      submittedBy: localStorage.getItem("currentStudent") || "unknown",
-    });
-    localStorage.setItem("hostelComplaints", JSON.stringify(complaints));
-    
-    setNotificationData({
-      title: "Success!",
-      message: "Your complaint has been submitted successfully.",
-      type: "success"
-    });
-    setShowNotification(true);
-    
-    setTimeout(() => {
-      navigate("/hostel");
-    }, 2000);
+    if ((recipientType === "hod" || recipientType === "both") && !targetHodUsername) {
+      showToast("Please select HOD recipient!", "warning");
+      return;
+    }
+
+    try {
+      const blocks = await fetchComplaintBlockList();
+      if (blocks.categoryBlocked && blocks.categoryBlocked.hostel) {
+        setNotificationData({
+          title: "Access Denied",
+          message: "Complaints for Hostel have been disabled by an administrator.",
+          type: "error"
+        });
+        setShowNotification(true);
+        return;
+      }
+      if (id && Array.isArray(blocks.hostel) && blocks.hostel.includes(id)) {
+        setNotificationData({
+          title: "Access Denied",
+          message: "You are blocked from submitting further Hostel complaints.",
+          type: "error"
+        });
+        setShowNotification(true);
+        return;
+      }
+
+      await createComplaint({
+        complaintId: Date.now(),
+        category: "hostel",
+        name,
+        studentId: id,
+        hostel,
+        text: complaint,
+        date: new Date().toLocaleString(),
+        submittedBy: currentUser.username || "unknown",
+        plagged: false,
+        recipientType,
+        targetDepartmentId: departmentId,
+        targetHodUsername: recipientType === "faculty" ? "" : targetHodUsername,
+        targetFacultyUsername: recipientType === "hod" ? "" : targetFacultyUsername,
+      });
+
+      setNotificationData({
+        title: "Success!",
+        message: "Your complaint has been submitted successfully.",
+        type: "success"
+      });
+      setShowNotification(true);
+
+      setTimeout(() => {
+        navigate("/hostel");
+      }, 2000);
+    } catch (error) {
+      console.error("API FAILED", error);
+      showToast("Unable to submit complaint", "error");
+    }
   };
 
   return (
     <div style={styles.pageCard}>
-      <NotificationModal 
+      <NotificationModal
         isOpen={showNotification}
         title={notificationData.title}
         message={notificationData.message}
@@ -183,6 +247,55 @@ function HostelComplaint() {
           style={{ width: "100%", padding: "10px", borderRadius: "8px", border: `1px solid ${isDark ? "#3e3214" : "#ccc"}`, marginBottom: "10px", backgroundColor: isDark ? "#111722" : "#fff", color: isDark ? "#f1e4bd" : "#333" }}
           required
         />
+
+        <label style={styles.label}>Send To:</label>
+        <select
+          value={recipientType}
+          onChange={(e) => setRecipientType(e.target.value)}
+          style={{ width: "100%", padding: "10px", borderRadius: "8px", border: `1px solid ${isDark ? "#3e3214" : "#ccc"}`, marginBottom: "10px", backgroundColor: isDark ? "#111722" : "#fff", color: isDark ? "#f1e4bd" : "#333" }}
+        >
+          <option value="hod">HOD</option>
+          <option value="faculty">Faculty</option>
+          <option value="both">Both</option>
+        </select>
+
+        {(recipientType === "hod" || recipientType === "both") && (
+          <>
+            <label style={styles.label}>HOD Recipient:</label>
+            <select
+              value={targetHodUsername}
+              onChange={(e) => setTargetHodUsername(e.target.value)}
+              style={{ width: "100%", padding: "10px", borderRadius: "8px", border: `1px solid ${isDark ? "#3e3214" : "#ccc"}`, marginBottom: "10px", backgroundColor: isDark ? "#111722" : "#fff", color: isDark ? "#f1e4bd" : "#333" }}
+              required={recipientType === "hod" || recipientType === "both"}
+            >
+              <option value="">Select HOD</option>
+              {hodOptions.map((hod) => (
+                <option key={hod.id || hod.username} value={hod.username}>
+                  {hod.fullName || hod.username}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {(recipientType === "faculty" || recipientType === "both") && (
+          <>
+            <label style={styles.label}>Faculty Recipient:</label>
+            <select
+              value={targetFacultyUsername}
+              onChange={(e) => setTargetFacultyUsername(e.target.value)}
+              style={{ width: "100%", padding: "10px", borderRadius: "8px", border: `1px solid ${isDark ? "#3e3214" : "#ccc"}`, marginBottom: "10px", backgroundColor: isDark ? "#111722" : "#fff", color: isDark ? "#f1e4bd" : "#333" }}
+              required={recipientType === "faculty" || recipientType === "both"}
+            >
+              <option value="">Select Faculty</option>
+              {facultyOptions.map((item) => (
+                <option key={item.id || item.username} value={item.username}>
+                  {item.fullName || item.username}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
 
         <label style={styles.label}>Write your complaint:</label>
         <textarea

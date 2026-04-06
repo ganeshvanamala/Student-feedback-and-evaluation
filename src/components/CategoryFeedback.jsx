@@ -1,13 +1,31 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FormViewer from "./FormViewer";
 import { getEligibleFormsForStudent, getFormsForCategory } from "../domain/selectors";
+import { fetchFormsByCategory } from "../api/formsApi";
 
 function CategoryFeedback({ categoryId, categoryName }) {
-  const [forms] = useState(() => {
-    const saved = localStorage.getItem("adminForms");
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [forms, setForms] = useState({});
+  const [loadingForms, setLoadingForms] = useState(true);
+  const [formsError, setFormsError] = useState("");
+
+  useEffect(() => {
+    const loadForms = async () => {
+      setLoadingForms(true);
+      setFormsError("");
+      try {
+        const latestForms = await fetchFormsByCategory();
+        setForms(latestForms);
+      } catch (error) {
+        setForms({ academics: [], sports: [], hostel: [] });
+        setFormsError("Unable to load forms from server.");
+      } finally {
+        setLoadingForms(false);
+      }
+    };
+
+    loadForms();
+  }, []);
 
   const [selectedFormId, setSelectedFormId] = useState(null);
   const navigate = useNavigate();
@@ -59,8 +77,10 @@ function CategoryFeedback({ categoryId, categoryName }) {
     <div className="category-feedback-container">
       <div className="feedback-card">
         <h1>{categoryName} Feedback</h1>
+        {loadingForms && <p>Loading forms...</p>}
+        {!loadingForms && formsError && <p>{formsError}</p>}
 
-        {!formsForCategory.length ? (
+        {!loadingForms && !formsForCategory.length ? (
           <div className="no-form-message">
             <p className="no-form-icon">No forms</p>
             <h2>No Forms Available</h2>

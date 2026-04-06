@@ -40,3 +40,4 @@ export function NotificationModal({ isOpen, title, message, type = "success", on
     </div>
   );
 }
+

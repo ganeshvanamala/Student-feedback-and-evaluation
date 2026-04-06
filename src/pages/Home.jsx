@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import "../styles/Home.css";
 import { useNavigate } from "react-router-dom";
 import { Captcha } from "../components/Captcha";
-import { safeParse } from "../utils/storage";
 import logo from "../assets/logo.svg";
 import { setSession } from "../auth/session";
 import { ROLES } from "../auth/roles";
+import { loginUser } from "../api/usersApi";
+import { getDepartmentNameById } from "../utils/departments";
 
 function Home() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ function Home() {
   const [loginPass, setLoginPass] = useState("");
   const [selectedRole, setSelectedRole] = useState("student");
   const [loginMessage, setLoginMessage] = useState("");
-  const [currentView, setCurrentView] = useState("home"); // 'home', 'about', 'contact'
+  const [currentView, setCurrentView] = useState("home");
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("homeTheme") || "light");
 
@@ -36,58 +37,79 @@ function Home() {
     admin: { id: "admin123", pass: "admin@123" },
   };
 
-  const login = (type) => {
+  const login = async (type) => {
     if (!captchaVerified) {
       setLoginMessage("Please enter valid CAPTCHA.");
       return;
     }
 
     if (type === "student" || type === "hod" || type === "faculty") {
-      // Check registered users for role-based login
-      const registeredUsers = safeParse("registeredUsers", []);
-      const user = registeredUsers.find(u => u.username === loginId && u.password === loginPass);
-      
-      if (user) {
-        const role = user.role || ROLES.STUDENT;
-        const requestedRole = type;
-        const isLegacyStudent = requestedRole === "student" && (!user.role || role === ROLES.STUDENT);
-        const isExactRoleMatch = role === requestedRole;
-        if (!(isLegacyStudent || isExactRoleMatch)) {
-          setLoginMessage(`This account is not a ${requestedRole.toUpperCase()} account.`);
+      try {
+        const loginData = {
+          username: loginId,
+          password: loginPass,
+        };
+
+        const user = await loginUser(loginData);
+        const role = String(user?.role || "").toLowerCase();
+
+        if (!role || ![ROLES.STUDENT, ROLES.HOD, ROLES.FACULTY, ROLES.ADMIN].includes(role)) {
+          setLoginMessage("This account has an invalid role configuration.");
           return;
         }
 
-        setSession({
+        if (role !== type) {
+          setLoginMessage(`This account is not a ${type.toUpperCase()} account.`);
+          return;
+        }
+
+        const departmentId = user?.departmentId || user?.departmentIds?.[0] || "";
+
+        const sessionUser = {
           ...user,
-          id: user.id || user.username,
-          username: user.username,
+          id: user?.id || user?.userId || user?.username || loginId,
+          username: user?.username || loginId,
           role,
-          departmentIds: user.departmentIds || user.departmentId || user.profile?.department || [],
-          subjectIds: user.subjectIds || user.subjectId || [],
-        });
+          departmentId,
+          departmentIds: user?.departmentIds || (departmentId ? [departmentId] : []),
+          subjectIds: user?.subjectIds || [],
+          studentId: user?.studentId || user?.profile?.studentId || null,
+          profile: {
+            fullName: user?.profile?.fullName || user?.fullName || "Not provided",
+            studentId: user?.profile?.studentId || user?.studentId || "Not provided",
+            email: user?.profile?.email || user?.email || "Not provided",
+            department:
+              user?.profile?.department ||
+              getDepartmentNameById(departmentId, departmentId || "Not provided"),
+            year: user?.profile?.year || user?.year || "Not provided",
+          },
+          password: loginPass,
+        };
+
+        setSession(sessionUser);
         setLoginMessage("");
+
         if (role === ROLES.HOD) {
           navigate("/hod");
         } else if (role === ROLES.FACULTY) {
           navigate("/faculty");
-        } else if (role === ROLES.ADMIN) {
-          navigate("/admin");
         } else {
           navigate("/student");
         }
-      } else {
+      } catch (error) {
+        console.error("API FAILED", error);
         setLoginMessage("Invalid ID or Password!");
       }
     } else {
-      // Admin login uses hardcoded credentials
       if (loginId === credentials[type].id && loginPass === credentials[type].pass) {
         setSession({
           id: credentials[type].id,
           username: credentials[type].id,
           role: ROLES.ADMIN,
           permissions: ["*"],
+          password: loginPass,
         });
-        navigate(type === "admin" ? "/admin" : "/student");
+        navigate("/admin");
       } else {
         setLoginMessage("Invalid ID or Password!");
       }
@@ -96,7 +118,6 @@ function Home() {
 
   return (
     <div className={`page-wrapper theme-${theme}`}>
-      {/* Navbar */}
       <nav>
         <div className="logo">
           <img src={logo} alt="Logo" />
@@ -108,21 +129,20 @@ function Home() {
         </ul>
       </nav>
 
-      {/* Show About Page */}
       {currentView === "about" && (
         <div className="page-content">
-          <button className="back-btn" onClick={() => setCurrentView("home")}>← Back to Home</button>
+          <button className="back-btn" onClick={() => setCurrentView("home")}>â† Back to Home</button>
           <div className="about-card">
             <h1>About Us</h1>
             <p className="intro">
-              Welcome to the <strong>Student Feedback & Evaluation System</strong> — a comprehensive platform 
+              Welcome to the <strong>Student Feedback & Evaluation System</strong> â€” a comprehensive platform
               designed to bridge the gap between students and institutions.
             </p>
 
             <div className="about-section">
               <h2>Project Overview</h2>
               <p>
-                This project is a group project created by <strong>Ganesh Vanamala </strong> and team, aimed at revolutionizing 
+                This project is a group project created by <strong>Ganesh Vanamala </strong> and team, aimed at revolutionizing
                 the way student feedback is collected, managed, and analyzed in educational institutions.
               </p>
             </div>
@@ -130,7 +150,7 @@ function Home() {
             <div className="about-section">
               <h2>Our Mission</h2>
               <p>
-                To provide a transparent, secure, and user-friendly platform where students can voice their opinions 
+                To provide a transparent, secure, and user-friendly platform where students can voice their opinions
                 and institutions can make data-driven decisions for continuous improvement.
               </p>
             </div>
@@ -138,12 +158,12 @@ function Home() {
             <div className="about-section">
               <h2>Key Features</h2>
               <ul>
-                <li>✅ Student Registration & Secure Login</li>
-                <li>✅ Category-based Feedback (Academics, Sports, Hostel)</li>
-                <li>✅ Dynamic Admin Form Builder</li>
-                <li>✅ Real-time Response Analytics</li>
-                <li>✅ Complaint Management System</li>
-                <li>✅ Multi-level Rating Options (Stars, Sliders, Checkboxes)</li>
+                <li>âœ… Student Registration & Secure Login</li>
+                <li>âœ… Category-based Feedback (Academics, Sports, Hostel)</li>
+                <li>âœ… Dynamic Admin Form Builder</li>
+                <li>âœ… Real-time Response Analytics</li>
+                <li>âœ… Complaint Management System</li>
+                <li>âœ… Multi-level Rating Options (Stars, Sliders, Checkboxes)</li>
               </ul>
             </div>
 
@@ -169,10 +189,9 @@ function Home() {
         </div>
       )}
 
-      {/* Show Contact Page */}
       {currentView === "contact" && (
         <div className="page-content">
-          <button className="back-btn" onClick={() => setCurrentView("home")}>← Back to Home</button>
+          <button className="back-btn" onClick={() => setCurrentView("home")}>â† Back to Home</button>
           <div className="contact-card">
             <h1>Contact Us</h1>
             <p className="intro">
@@ -183,19 +202,19 @@ function Home() {
               <h2>Get in Touch</h2>
               <div className="contact-info">
                 <div className="contact-item">
-                  <strong>📧 Email:</strong>
+                  <strong>ðŸ“§ Email:</strong>
                   <p><a href="mailto:feedback@studentfeedback.com">feedback@studentfeedback.com</a></p>
                 </div>
                 <div className="contact-item">
-                  <strong>📱 Phone:</strong>
+                  <strong>ðŸ“± Phone:</strong>
                   <p>+91-XXXX-XXXX-XX</p>
                 </div>
                 <div className="contact-item">
-                  <strong>🏢 Address:</strong>
+                  <strong>ðŸ¢ Address:</strong>
                   <p>Educational Institute Campus<br/>City, State - 123456<br/>India</p>
                 </div>
                 <div className="contact-item">
-                  <strong>⏰ Working Hours:</strong>
+                  <strong>â° Working Hours:</strong>
                   <p>Monday - Friday: 9:00 AM - 6:00 PM<br/>Saturday: 10:00 AM - 4:00 PM<br/>Sunday: Closed</p>
                 </div>
               </div>
@@ -223,7 +242,6 @@ function Home() {
         </div>
       )}
 
-      {/* Show Home Page */}
       {currentView === "home" && (
         <div className="main">
           <div className="center hero-panel">
@@ -291,10 +309,11 @@ function Home() {
       </div>
       )}
       <footer>
-        © 2025 Student Feedback & Evaluation System | Designed by Team
+        Â© 2025 Student Feedback & Evaluation System | Designed by Team
       </footer>
     </div>
   );
 }
 
 export default Home;
+

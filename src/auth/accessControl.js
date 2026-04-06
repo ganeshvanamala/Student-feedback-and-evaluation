@@ -1,6 +1,5 @@
-import { ROLES, hasAnyRole, normalizeRole } from "./roles";
+﻿import { ROLES, hasAnyRole, normalizeRole } from "./roles";
 import { inferDepartmentId } from "../utils/departments";
-import { getSubjects } from "../utils/academicData";
 
 function toArray(value) {
   if (Array.isArray(value)) return value.filter(Boolean);
@@ -112,13 +111,6 @@ export function canCreateForm(user, target = {}) {
     if (!["department", "subject"].includes(scopeType)) return false;
     if (!scopeIds.length) return false;
     if (scopeType === "department") return scopeIds.every((id) => hasDepartmentScope(u, id));
-    const subjectDepartmentIds = getSubjects()
-      .filter((subject) => scopeIds.includes(subject.id))
-      .map((subject) => inferDepartmentId(subject.departmentId || subject.branch))
-      .filter((value, index, arr) => Boolean(value) && arr.indexOf(value) === index);
-    if (subjectDepartmentIds.length) {
-      return subjectDepartmentIds.every((id) => hasDepartmentScope(u, id));
-    }
     if (targetDepartments.length) {
       return targetDepartments.every((id) => hasDepartmentScope(u, id));
     }
@@ -158,7 +150,6 @@ export function canViewForm(user, form = {}, context = {}) {
   }
 
   if (u.role === ROLES.STUDENT) {
-    // Backward compatibility for current form targeting model.
     if (!form.scopeType && !form.visibilityScopeType) {
       return matchesLegacyAcademicEligibility(form, context);
     }
@@ -207,14 +198,28 @@ export function canViewComplaint(user, complaint = {}) {
     return String(owner) === String(u.id) || String(owner) === String(u.username);
   }
 
-  const complaintDeptId = complaint.departmentId || complaint.dept;
+  const complaintDeptId = complaint.targetDepartmentId || complaint.departmentId || complaint.dept;
   const complaintSubjectId = complaint.subjectId;
+  const recipientType = String(complaint.recipientType || "").trim().toLowerCase();
+  const targetHodUsername = String(complaint.targetHodUsername || "").trim().toLowerCase();
+  const targetFacultyUsername = String(complaint.targetFacultyUsername || "").trim().toLowerCase();
+  const myUsername = String(u.username || "").trim().toLowerCase();
 
   if (u.role === ROLES.HOD) {
+    if (recipientType) {
+      if (!recipientType.includes("hod") && recipientType !== "both") return false;
+      if (targetHodUsername) return targetHodUsername === myUsername;
+      return hasDepartmentScope(u, complaintDeptId);
+    }
     return hasDepartmentScope(u, complaintDeptId) || hasSubjectScope(u, complaintSubjectId);
   }
 
   if (u.role === ROLES.FACULTY) {
+    if (recipientType) {
+      if (!recipientType.includes("faculty") && recipientType !== "both") return false;
+      if (targetFacultyUsername) return targetFacultyUsername === myUsername;
+      return hasSubjectScope(u, complaintSubjectId);
+    }
     return hasSubjectScope(u, complaintSubjectId);
   }
 

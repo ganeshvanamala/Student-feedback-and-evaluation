@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { appendFormResponse, fetchFormsByCategory } from "../api/formsApi";
+import { getCurrentUser } from "../auth/session";
 
 const getCategoryForms = (allForms, categoryId) => {
   const value = allForms?.[categoryId];
@@ -9,18 +11,56 @@ const getCategoryForms = (allForms, categoryId) => {
 
 function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
   const navigate = useNavigate();
-  const [formsState, setFormsState] = useState(() => {
-    const saved = localStorage.getItem("adminForms");
-    return saved ? JSON.parse(saved) : {};
-  });
+  const [formsState, setFormsState] = useState({});
+  const [loadingForms, setLoadingForms] = useState(true);
+  const [formsError, setFormsError] = useState("");
   const [responses, setResponses] = useState({});
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const loadForms = async () => {
+      setLoadingForms(true);
+      setFormsError("");
+      try {
+        const forms = await fetchFormsByCategory();
+        setFormsState(forms);
+      } catch (error) {
+        setFormsState({ academics: [], sports: [], hostel: [] });
+        setFormsError("Unable to load form details from server.");
+      } finally {
+        setLoadingForms(false);
+      }
+    };
+
+    loadForms();
+  }, []);
 
   const form = useMemo(() => {
     const forms = getCategoryForms(formsState, categoryId);
     const byId = forms.find((item) => String(item.id) === String(formId));
     return byId || forms[0] || null;
   }, [formsState, categoryId, formId]);
+
+  if (loadingForms) {
+    return (
+      <div className="no-form-card">
+        <h2>Loading...</h2>
+        <p>Fetching form details.</p>
+      </div>
+    );
+  }
+
+  if (formsError) {
+    return (
+      <div className="no-form-card">
+        <h2>Unable to Load Form</h2>
+        <p>{formsError}</p>
+        <button onClick={() => navigate(-1)} className="btn-secondary">
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -51,7 +91,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
     setResponses((prev) => ({ ...prev, [questionId]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (categoryId === "academics") {
       const studentYear = Number(contextData?.year || 0);
       const targetYear = Number(form.targetYear || 0);
@@ -91,7 +131,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       return;
     }
 
-    const submittedBy = localStorage.getItem("currentStudent") || "unknown";
+    const submittedBy = getCurrentUser().username || "unknown";
     const response = {
       id: Date.now(),
       timestamp: new Date().toLocaleString(),
@@ -101,26 +141,22 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       contextData,
     };
 
-    const nextFormsState = { ...formsState };
-    const categoryForms = getCategoryForms(nextFormsState, categoryId);
-    const targetIndex = categoryForms.findIndex((item) => String(item.id) === String(form.id));
-    if (targetIndex === -1) return;
-    const updatedCategoryForms = [...categoryForms];
-    updatedCategoryForms[targetIndex] = {
-      ...updatedCategoryForms[targetIndex],
-      responses: [...(updatedCategoryForms[targetIndex].responses || []), response],
-    };
-    nextFormsState[categoryId] = updatedCategoryForms;
-
-    localStorage.setItem("adminForms", JSON.stringify(nextFormsState));
-    setFormsState(nextFormsState);
-    setSubmitted(true);
+    try {
+      await appendFormResponse(form.id, response);
+      const latestForms = await fetchFormsByCategory();
+      setFormsState(latestForms);
+      setSubmitted(true);
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Failed to submit feedback. Please try again.");
+    }
   };
 
   const renderQuestion = (question, idx) => {
     const value = responses[question.id];
+    const questionType = String(question.type || "").trim().toLowerCase();
 
-    if (question.type === "stars") {
+    if (questionType === "stars") {
       return (
         <div key={question.id} className="question-wrapper">
           <label className="question-label">
@@ -137,23 +173,27 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       );
     }
 
-    if (question.type === "radio-5") {
+    if (questionType === "radio-5") {
+      const radioOptions = Array.isArray(question.options) && question.options.length > 0
+        ? question.options
+        : ["1", "2", "3", "4", "5"];
+
       return (
         <div key={question.id} className="question-wrapper">
           <label className="question-label">
             Q{idx + 1}. {question.text}
           </label>
           <div className="radio-buttons-rating">
-            {[1, 2, 3, 4, 5].map((num) => (
-              <label key={num} className="radio-label">
+            {radioOptions.map((option) => (
+              <label key={option} className="radio-label">
                 <input
                   type="radio"
                   name={`q-${question.id}`}
-                  value={num}
-                  checked={value === num}
-                  onChange={() => handleResponseChange(question.id, num)}
+                  value={option}
+                  checked={String(value) === String(option)}
+                  onChange={() => handleResponseChange(question.id, option)}
                 />
-                <span className="radio-circle">{num}</span>
+                <span className="radio-circle">{option}</span>
               </label>
             ))}
           </div>
@@ -161,7 +201,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       );
     }
 
-    if (question.type === "slider") {
+    if (questionType === "slider" || questionType === "levels") {
       return (
         <div key={question.id} className="question-wrapper">
           <label className="question-label">
@@ -186,7 +226,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       );
     }
 
-    if (question.type === "checkbox") {
+    if (questionType === "checkbox") {
       return (
         <div key={question.id} className="question-wrapper">
           <label className="question-label">
@@ -214,7 +254,7 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       );
     }
 
-    if (question.type === "multiple-choice") {
+    if (questionType === "multiple-choice") {
       return (
         <div key={question.id} className="question-wrapper">
           <label className="question-label">
@@ -239,7 +279,20 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
       );
     }
 
-    return null;
+    return (
+      <div key={question.id} className="question-wrapper">
+        <label className="question-label">
+          Q{idx + 1}. {question.text}
+        </label>
+        <input
+          type="text"
+          value={value || ""}
+          onChange={(e) => handleResponseChange(question.id, e.target.value)}
+          className="question-input"
+          placeholder="Type your response"
+        />
+      </div>
+    );
   };
 
   return (
@@ -264,3 +317,10 @@ function FormViewer({ categoryId, categoryName, contextData = {}, formId }) {
 }
 
 export default FormViewer;
+
+
+
+
+
+
+

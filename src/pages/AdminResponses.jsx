@@ -1,7 +1,22 @@
-import React, { useEffect, useState } from "react";
-import { safeParse } from "../utils/storage";
+﻿import React, { useEffect, useState } from "react";
 import { filterByCategory, getScopedComplaintRows, getScopedResponseRowsFromForms } from "../domain/selectors";
 import { getCurrentUser } from "../auth/session";
+import { fetchFormsByCategory } from "../api/formsApi";
+import { createReply } from "../api/repliesApi";
+import { deleteComplaint, fetchComplaints, setComplaintPlagged } from "../api/complaintsApi";
+import { fetchComplaintBlockList, saveComplaintBlockList } from "../api/complaintBlockApi";
+
+const groupComplaintsByCategory = (items = []) =>
+  items.reduce(
+    (acc, item) => {
+      const category = item?.category;
+      if (category === "academics" || category === "sports" || category === "hostel") {
+        acc[category].push(item);
+      }
+      return acc;
+    },
+    { academics: [], sports: [], hostel: [] }
+  );
 
 function AdminResponses() {
   const [allResponses, setAllResponses] = useState([]);
@@ -9,25 +24,29 @@ function AdminResponses() {
   const [filter, setFilter] = useState("all");
   const [viewType, setViewType] = useState("responses");
   const [replyDrafts, setReplyDrafts] = useState({});
+  const [formsLoading, setFormsLoading] = useState(true);
+  const [formsError, setFormsError] = useState("");
+
+  const loadResponses = async () => {
+    setFormsLoading(true);
+    setFormsError("");
+    try {
+      const user = getCurrentUser();
+      const [forms, complaintItems] = await Promise.all([fetchFormsByCategory(), fetchComplaints()]);
+      setAllResponses(getScopedResponseRowsFromForms(forms, user));
+      setComplaints(getScopedComplaintRows(groupComplaintsByCategory(complaintItems), user));
+    } catch (error) {
+      console.error("API FAILED", error);
+      setFormsError("Unable to load data from server.");
+      setAllResponses([]);
+      setComplaints([]);
+    } finally {
+      setFormsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const user = getCurrentUser();
-    const forms = safeParse("adminForms", {});
-    setAllResponses(getScopedResponseRowsFromForms(forms, user));
-
-    const acadComplaints = safeParse("academicsComplaints", []);
-    const sportComplaints = safeParse("sportsComplaints", []);
-    const hostelComplaints = safeParse("hostelComplaints", []);
-    setComplaints(
-      getScopedComplaintRows(
-        {
-          academics: acadComplaints,
-          sports: sportComplaints,
-          hostel: hostelComplaints,
-        },
-        user
-      )
-    );
+    loadResponses();
   }, []);
 
   const filteredResponses = filterByCategory(allResponses, filter);
@@ -40,63 +59,54 @@ function AdminResponses() {
     return value;
   };
 
-  const parseStoredComplaints = (category) => {
-    if (category === "academics") return safeParse("academicsComplaints", []);
-    if (category === "sports") return safeParse("sportsComplaints", []);
-    if (category === "hostel") return safeParse("hostelComplaints", []);
-    return [];
-  };
-
-  const saveStoredComplaints = (category, arr) => {
-    if (category === "academics") localStorage.setItem("academicsComplaints", JSON.stringify(arr));
-    if (category === "sports") localStorage.setItem("sportsComplaints", JSON.stringify(arr));
-    if (category === "hostel") localStorage.setItem("hostelComplaints", JSON.stringify(arr));
-  };
-
-  const handleClearComplaint = (complaint) => {
-    const stored = parseStoredComplaints(complaint.category);
-    const targetIndex = stored.findIndex((item) => item.complaintId === complaint.complaintId);
-    if (targetIndex !== -1) {
-      stored.splice(targetIndex, 1);
-      saveStoredComplaints(complaint.category, stored);
-    } else if (stored[complaint.storageIndex]) {
-      stored.splice(complaint.storageIndex, 1);
-      saveStoredComplaints(complaint.category, stored);
+  const handleClearComplaint = async (complaint) => {
+    try {
+      const complaintId = complaint?.id;
+      if (!complaintId) {
+        alert("Cannot clear complaint because backend id is missing.");
+        return;
+      }
+      await deleteComplaint(complaintId);
+      setComplaints((prev) => prev.filter((item) => item.rowId !== complaint.rowId));
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Unable to clear complaint.");
     }
-    setComplaints((prev) => prev.filter((item) => item.rowId !== complaint.rowId));
   };
 
-  const handlePlagComplaint = (complaint) => {
-    const stored = parseStoredComplaints(complaint.category);
-    const targetIndex = stored.findIndex((item) => item.complaintId === complaint.complaintId);
-    if (targetIndex !== -1) {
-      stored[targetIndex].plagged = true;
-      saveStoredComplaints(complaint.category, stored);
-    } else if (stored[complaint.storageIndex]) {
-      stored[complaint.storageIndex].plagged = true;
-      saveStoredComplaints(complaint.category, stored);
+  const handlePlagComplaint = async (complaint) => {
+    try {
+      const complaintId = complaint?.id;
+      if (!complaintId) {
+        alert("Cannot mark plagged because backend id is missing.");
+        return;
+      }
+
+      await setComplaintPlagged(complaintId, true);
+      const blocks = await fetchComplaintBlockList();
+      const nextBlocks = {
+        ...blocks,
+        categoryBlocked: { ...(blocks.categoryBlocked || {}) },
+      };
+
+      if (complaint.studentId) {
+        const existing = Array.isArray(nextBlocks[complaint.category]) ? nextBlocks[complaint.category] : [];
+        if (!existing.includes(complaint.studentId)) {
+          nextBlocks[complaint.category] = [...existing, complaint.studentId];
+        }
+      } else {
+        nextBlocks.categoryBlocked[complaint.category] = true;
+      }
+
+      await saveComplaintBlockList(nextBlocks);
+      setComplaints((prev) => prev.map((item) => (item.rowId === complaint.rowId ? { ...item, plagged: true } : item)));
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Unable to mark complaint as plagged.");
     }
-
-    const blocks = safeParse("complaintBlockList", {
-      academics: [],
-      sports: [],
-      hostel: [],
-      categoryBlocked: {},
-    });
-
-    if (complaint.studentId) {
-      if (!blocks[complaint.category]) blocks[complaint.category] = [];
-      if (!blocks[complaint.category].includes(complaint.studentId)) blocks[complaint.category].push(complaint.studentId);
-    } else {
-      blocks.categoryBlocked = blocks.categoryBlocked || {};
-      blocks.categoryBlocked[complaint.category] = true;
-    }
-
-    localStorage.setItem("complaintBlockList", JSON.stringify(blocks));
-    setComplaints((prev) => prev.map((item) => (item.rowId === complaint.rowId ? { ...item, plagged: true } : item)));
   };
 
-  const sendReply = ({ type, category, sourceId, targetUser, replyKey }) => {
+  const sendReply = async ({ type, category, sourceId, targetUser, replyKey }) => {
     const message = (replyDrafts[replyKey] || "").trim();
     if (!message) {
       alert("Please type a reply message.");
@@ -108,21 +118,22 @@ function AdminResponses() {
       return;
     }
 
-    const existingReplies = safeParse("studentReplies", []);
-    const newReply = {
-      id: Date.now(),
-      type,
-      category,
-      sourceId,
-      targetUser,
-      message,
-      createdAt: new Date().toLocaleString(),
-      isRead: false,
-    };
-
-    localStorage.setItem("studentReplies", JSON.stringify([...existingReplies, newReply]));
-    setReplyDrafts((prev) => ({ ...prev, [replyKey]: "" }));
-    alert("Reply sent to student.");
+    try {
+      await createReply({
+        type,
+        category,
+        sourceId,
+        targetUser,
+        message,
+        createdAt: new Date().toLocaleString(),
+        isRead: false,
+      });
+      setReplyDrafts((prev) => ({ ...prev, [replyKey]: "" }));
+      alert("Reply sent to student.");
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Unable to send reply.");
+    }
   };
 
   return (
@@ -133,6 +144,8 @@ function AdminResponses() {
           Total: {viewType === "responses" ? filteredResponses.length : filteredComplaints.length}{" "}
           {viewType === "responses" ? "responses" : "complaints"}
         </p>
+        {formsLoading && <p>Loading forms...</p>}
+        {!formsLoading && formsError && <p>{formsError}</p>}
       </div>
 
       <div className="filter-section">
@@ -245,6 +258,9 @@ function AdminResponses() {
                 {complaint.studentId && <p><strong>Student ID:</strong> {complaint.studentId}</p>}
                 {complaint.hostel && <p><strong>Hostel:</strong> {complaint.hostel}</p>}
                 {complaint.sport && <p><strong>Sport:</strong> {complaint.sport}</p>}
+                {complaint.recipientType && <p><strong>Sent To:</strong> {String(complaint.recipientType).toUpperCase()}</p>}
+                {complaint.targetHodUsername && <p><strong>HOD Recipient:</strong> {complaint.targetHodUsername}</p>}
+                {complaint.targetFacultyUsername && <p><strong>Faculty Recipient:</strong> {complaint.targetFacultyUsername}</p>}
                 <p><strong>Complaint:</strong> {complaint.text}</p>
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

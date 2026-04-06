@@ -23,9 +23,12 @@ function Faculty() {
   });
 
   useEffect(() => {
-    initializeAcademicData();
-    setSubjects(getSubjects());
-    setFacultyList(getFaculty());
+    const load = async () => {
+      await initializeAcademicData();
+      setSubjects(await getSubjects());
+      setFacultyList(await getFaculty());
+    };
+    load();
   }, []);
 
   const branchSubjects = useMemo(
@@ -72,7 +75,7 @@ function Faculty() {
         section: Number(entry.section),
       }));
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     if (!form.name.trim() || !form.employeeId.trim()) return;
 
@@ -98,14 +101,22 @@ function Faculty() {
     }
 
     setFacultyList(updated);
-    saveFaculty(updated);
+    try {
+      await saveFaculty(updated);
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
     resetForm();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const updated = facultyList.filter((item) => item.id !== id);
     setFacultyList(updated);
-    saveFaculty(updated);
+    try {
+      await saveFaculty(updated);
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
     if (editingId === id) resetForm();
   };
 
