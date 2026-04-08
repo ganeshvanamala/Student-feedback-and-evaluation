@@ -1,6 +1,8 @@
 import { ROLES, normalizeRole } from "./roles";
 import { inferDepartmentId } from "../utils/departments";
 
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+
 const emptyUser = {
   id: null,
   username: "",
@@ -44,12 +46,19 @@ const normalizeUser = (rawUser = {}) => ({
   password: rawUser.password || null,
 });
 
-const buildSession = (user, isAuthenticated = true) => ({
+const buildSession = (user, isAuthenticated = true, token = null, expiresAt = null) => ({
   isAuthenticated: Boolean(isAuthenticated),
   user: normalizeUser(user),
+  token: token || null,
+  expiresAt: Number(expiresAt) || Date.now() + SESSION_TTL_MS,
 });
 
 const canUseStorage = () => typeof window !== "undefined" && !!window.localStorage;
+
+const isExpiredValue = (expiresAt) => {
+  if (!expiresAt) return true;
+  return Number(expiresAt) <= Date.now();
+};
 
 const persistSession = (session) => {
   if (!canUseStorage()) return;
@@ -60,6 +69,8 @@ const persistSession = (session) => {
         ...normalizeUser(session?.user || {}),
         password: null,
       },
+      token: session?.token || null,
+      expiresAt: session?.expiresAt || null,
     };
     localStorage.setItem(AUTH_KEYS.SESSION_KEY, JSON.stringify(toPersist));
   } catch (error) {
@@ -73,8 +84,9 @@ const readPersistedSession = () => {
     const raw = localStorage.getItem(AUTH_KEYS.SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.isAuthenticated || !parsed.user) return null;
-    return buildSession({ ...parsed.user, password: null }, true);
+    if (!parsed || !parsed.isAuthenticated || !parsed.user || !parsed.token) return null;
+    if (isExpiredValue(parsed.expiresAt)) return null;
+    return buildSession({ ...parsed.user, password: null }, true, parsed.token, parsed.expiresAt);
   } catch (error) {
     console.error("API FAILED", error);
     return null;
@@ -84,6 +96,8 @@ const readPersistedSession = () => {
 let inMemorySession = readPersistedSession() || {
   isAuthenticated: false,
   user: { ...emptyUser },
+  token: null,
+  expiresAt: null,
 };
 
 export function getSession() {
@@ -94,12 +108,26 @@ export function getCurrentUser() {
   return inMemorySession.user;
 }
 
-export function isAuthenticated() {
-  return inMemorySession.isAuthenticated;
+export function getAuthToken() {
+  return inMemorySession.token;
 }
 
-export function setSession(user) {
-  inMemorySession = buildSession(user, true);
+export function isSessionExpired() {
+  return isExpiredValue(inMemorySession.expiresAt);
+}
+
+export function isAuthenticated() {
+  if (!inMemorySession.isAuthenticated) return false;
+  if (!inMemorySession.token) return false;
+  if (isSessionExpired()) {
+    clearSession();
+    return false;
+  }
+  return true;
+}
+
+export function setSession(user, token = null, expiresAt = null) {
+  inMemorySession = buildSession(user, true, token, expiresAt);
   persistSession(inMemorySession);
   return inMemorySession;
 }
@@ -108,6 +136,8 @@ export function clearSession() {
   inMemorySession = {
     isAuthenticated: false,
     user: { ...emptyUser },
+    token: null,
+    expiresAt: null,
   };
 
   if (canUseStorage()) {
