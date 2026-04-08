@@ -1,42 +1,50 @@
 import React from "react";
-import { safeParse } from "../utils/storage";
 
-function FeedbackAnalysis({ section }) {
-  const feedbacks = safeParse(`${section.toLowerCase()}Feedbacks`, []);
+function FeedbackAnalysis({ section, feedbacks = [] }) {
+  if (!feedbacks.length)
+    return (
+      <div>
+        <h3>{section} Feedback Analysis</h3>
+        <p>No feedback data available.</p>
+      </div>
+    );
 
-  if (feedbacks.length === 0) return <p style={{ textAlign: "center" }}>No feedback to analyze</p>;
+  const questionAverages = {};
 
-  const avgScores = [];
-  for (let i = 1; i <= 14; i++) {
-    let sum = 0;
-    feedbacks.forEach(fb => { sum += parseInt(fb[`q${i}`] || 0); });
-    avgScores.push((sum / feedbacks.length).toFixed(2));
-  }
+  feedbacks.forEach((feedback) => {
+    Object.keys(feedback).forEach((key) => {
+      if (key.startsWith("q") && !Number.isNaN(Number(feedback[key]))) {
+        if (!questionAverages[key]) questionAverages[key] = [];
+        questionAverages[key].push(Number(feedback[key]));
+      }
+    });
+  });
 
   return (
-    <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-      <h3 style={{ textAlign: "center", color: "#2575fc" }}>Average Scores (1-5)</h3>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "10px" }}>
+    <div>
+      <h3>{section} Feedback Analysis</h3>
+      <table border="1" cellPadding="8" style={{ width: "100%", marginTop: "10px" }}>
         <thead>
           <tr>
-            {[...Array(14)].map((_, i) => (
-              <th key={i} style={thStyle}>Q{i+1}</th>
-            ))}
+            <th>Question</th>
+            <th>Average Rating</th>
           </tr>
         </thead>
         <tbody>
-          <tr style={{ textAlign: "center" }}>
-            {avgScores.map((a, i) => (
-              <td key={i} style={tdStyle}>{a}</td>
-            ))}
-          </tr>
+          {Object.keys(questionAverages).map((question) => {
+            const avg =
+              questionAverages[question].reduce((sum, value) => sum + value, 0) / questionAverages[question].length;
+            return (
+              <tr key={question}>
+                <td>{question.toUpperCase()}</td>
+                <td>{avg.toFixed(2)}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
-
-const thStyle = { border: "1px solid #ccc", padding: "8px", background: "#eee" };
-const tdStyle = { border: "1px solid #ccc", padding: "8px" };
 
 export default FeedbackAnalysis;

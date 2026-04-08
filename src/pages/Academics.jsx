@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BTECH_BRANCHES, BTECH_YEARS, getFaculty, getSubjects, initializeAcademicData } from "../utils/academicData";
-import { readJSON } from "../utils/storage";
-import { STORAGE_KEYS } from "../data/keys";
-import { ROLES } from "../auth/roles";
 
 const Academics = () => {
   const navigate = useNavigate();
@@ -17,49 +14,12 @@ const Academics = () => {
   const isDark = theme === "dark";
 
   useEffect(() => {
-    initializeAcademicData();
-    setSubjects(getSubjects());
-    
-    // Combine faculty from both default faculty and registered faculty users
-    const defaultFacultyList = getFaculty();
-    const registeredUsers = readJSON(STORAGE_KEYS.REGISTERED_USERS, []);
-    const academicSubjects = getSubjects();
-    
-    // Convert registered faculty users to faculty object format
-    const registeredFaculty = registeredUsers
-      .filter((user) => user.role === ROLES.FACULTY)
-      .map((user) => {
-        // Build teaching array from subjectIds by looking up subject info
-        const teaching = (user.subjectIds || []).map((subjectId) => {
-          const subject = academicSubjects.find((s) => s.id === subjectId);
-          return {
-            subjectId,
-            year: subject?.year || 2,
-            section: 1,
-          };
-        });
-        
-        return {
-          id: user.id,
-          name: user.profile?.fullName || user.username,
-          employeeId: user.profile?.employeeId || `FAC-${user.id}`,
-          branch: user.profile?.department 
-            ? user.profile.department.toUpperCase() 
-            : (user.departmentIds?.[0] || "cse").toUpperCase(),
-          departmentId: user.departmentIds?.[0] || "cse",
-          teaching,
-        };
-      });
-    
-    // Combine and deduplicate by faculty ID
-    const combined = [...defaultFacultyList];
-    registeredFaculty.forEach((regFac) => {
-      if (!combined.some((f) => f.id === regFac.id)) {
-        combined.push(regFac);
-      }
-    });
-    
-    setFacultyData(combined);
+    const loadAcademicData = async () => {
+      await initializeAcademicData();
+      setSubjects(await getSubjects());
+      setFacultyData(await getFaculty());
+    };
+    loadAcademicData();
 
     const onThemeChange = (event) => {
       setTheme(event?.detail || localStorage.getItem("homeTheme") || "light");
@@ -110,14 +70,14 @@ const Academics = () => {
     (subject) => Number(subject.year) === Number(year || 0) && subject.branch === dept
   );
 
-  const filteredFaculty = facultyData.filter((item) =>
-    item.branch === dept &&
-    (item.teaching || []).some(
-      (entry) => entry.subjectId === courseId && Number(entry.year) === Number(year || 0)
-    )
+  const filteredFaculty = facultyData.filter(
+    (item) =>
+      item.branch === dept &&
+      (item.teaching || []).some(
+        (entry) => entry.subjectId === courseId && Number(entry.year) === Number(year || 0)
+      )
   );
 
-  // Inline CSS
   const styles = {
     backButton: {
       display: "inline-block",
@@ -173,85 +133,69 @@ const Academics = () => {
       cursor: "pointer",
       transition: "background-color 0.3s, transform 0.2s",
     },
-    buttonHover: {
-      backgroundColor: "#6a11cb",
-      transform: "scale(1.05)",
-    },
   };
 
   return (
     <>
-      <button style={styles.backButton} onClick={() => navigate("/student")}>← Back</button>
+      <button style={styles.backButton} onClick={() => navigate("/student")}>Back</button>
       <div style={styles.pageCard}>
         <h1 style={styles.heading}>Academics Feedback</h1>
 
-      <label style={styles.label}>Year:</label>
-      <select
-        style={styles.input}
-        value={year}
-        onChange={(e) => updateDepartments(e.target.value)}
-      >
-        <option value="">Select Year</option>
-        {BTECH_YEARS.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
+        <label style={styles.label}>Year:</label>
+        <select style={styles.input} value={year} onChange={(e) => updateDepartments(e.target.value)}>
+          <option value="">Select Year</option>
+          {BTECH_YEARS.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
 
-      <label style={styles.label}>Department:</label>
-      <select
-        style={styles.input}
-        value={dept}
-        onChange={(e) => updateBranch(e.target.value)}
-      >
-        <option value="">Select Department</option>
-        {BTECH_BRANCHES.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
+        <label style={styles.label}>Department:</label>
+        <select style={styles.input} value={dept} onChange={(e) => updateBranch(e.target.value)}>
+          <option value="">Select Department</option>
+          {BTECH_BRANCHES.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
 
-      <label style={styles.label}>Course:</label>
-      <select
-        style={styles.input}
-        value={courseId}
-        onChange={(e) => {
-          setCourseId(e.target.value);
-          setFaculty("");
-        }}
-      >
-        <option value="">Select Course</option>
-        {filteredSubjects.map((subject) => (
-          <option key={subject.id} value={subject.id}>
-            {subject.name} ({subject.code})
-          </option>
-        ))}
-      </select>
+        <label style={styles.label}>Course:</label>
+        <select
+          style={styles.input}
+          value={courseId}
+          onChange={(e) => {
+            setCourseId(e.target.value);
+            setFaculty("");
+          }}
+        >
+          <option value="">Select Course</option>
+          {filteredSubjects.map((subject) => (
+            <option key={subject.id} value={subject.id}>
+              {subject.name} ({subject.code})
+            </option>
+          ))}
+        </select>
 
-      <label style={styles.label}>Faculty (Choose Your Faculty):</label>
-      <select
-        style={styles.input}
-        value={faculty}
-        onChange={(e) => setFaculty(e.target.value)}
-      >
-        <option value="">Select Faculty</option>
-        {filteredFaculty.map((item) => (
-          <option key={item.id} value={item.name}>
-            {item.name} ({item.employeeId})
-          </option>
-        ))}
-      </select>
+        <label style={styles.label}>Faculty (Choose Your Faculty):</label>
+        <select style={styles.input} value={faculty} onChange={(e) => setFaculty(e.target.value)}>
+          <option value="">Select Faculty</option>
+          {filteredFaculty.map((item) => (
+            <option key={item.id} value={item.name}>
+              {item.name} ({item.employeeId})
+            </option>
+          ))}
+        </select>
 
-      <div style={styles.actionButtons}>
-        <button style={styles.button} onClick={() => goToPage("/academics-feedback")}>
-          Feedback
-        </button>
-        <button style={styles.button} onClick={() => goToPage("/academics-complaint")}>
-          Raise Complaint
-        </button>
-      </div>
+        <div style={styles.actionButtons}>
+          <button style={styles.button} onClick={() => goToPage("/academics-feedback")}>
+            Feedback
+          </button>
+          <button style={styles.button} onClick={() => goToPage("/academics-complaint")}>
+            Raise Complaint
+          </button>
+        </div>
       </div>
     </>
   );

@@ -1,7 +1,7 @@
 import React from "react";
 import adminAvatar from "../assets/admin-avatar.svg";
 
-function AdminTopbar({ onMenuToggle }) {
+function AdminTopbar({ onMenuToggle, title = "Admin" }) {
   const currentTime = new Date().toLocaleTimeString();
   const currentDate = new Date().toLocaleDateString();
 
@@ -11,14 +11,14 @@ function AdminTopbar({ onMenuToggle }) {
         <button className="admin-menu-btn" onClick={onMenuToggle}>
           Menu
         </button>
-        <h1>Dashboard</h1>
+        <h1>{title} Dashboard</h1>
       </div>
       <div className="topbar-right">
         <span className="topbar-datetime">
           {currentDate} | {currentTime}
         </span>
         <div className="topbar-avatar">
-          <img src={adminAvatar} alt="Admin" />
+          <img src={adminAvatar} alt={title} />
         </div>
       </div>
     </div>

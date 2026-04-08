@@ -4,6 +4,7 @@ import { getCurrentUser } from "../auth/session";
 import { canCreateForm } from "../auth/accessControl";
 import { ROLES } from "../auth/roles";
 import { getScopedFormsForUser } from "../domain/selectors";
+import { deleteFormById, fetchFormsByCategory, postForm } from "../api/formsApi";
 import academicsLightImg from "../assets/acadamics.jpg";
 import academicsDarkImg from "../assets/acadamics dark.png";
 import sportsLightImg from "../assets/sports.png";
@@ -52,7 +53,7 @@ function QuestionBuilder({
 }) {
   const ratingTypes = [
     { value: "stars", label: "5-Star Rating" },
-    { value: "radio-5", label: "Radio Buttons (1-5)" },
+    { value: "radio-5", label: "Radio Buttons" },
     { value: "slider", label: "Slider (1-10)" },
     { value: "checkbox", label: "Checkboxes (Multiple)" },
     { value: "multiple-choice", label: "Multiple Choice (Single)" },
@@ -142,7 +143,7 @@ function QuestionBuilder({
                     ))}
                   </select>
 
-                  {(question.type === "multiple-choice" || question.type === "checkbox") && (
+                  {(question.type === "multiple-choice" || question.type === "checkbox" || question.type === "radio-5") && (
                     <div className="options-input">
                       <label>Options (comma separated):</label>
                       <input
@@ -190,10 +191,9 @@ function QuestionBuilder({
 }
 
 function AdminForms() {
-  const [formsByCategory, setFormsByCategory] = useState(() => {
-    const saved = localStorage.getItem("adminForms");
-    return normalizeFormsByCategory(saved ? JSON.parse(saved) : {});
-  });
+  const [formsByCategory, setFormsByCategory] = useState(() => normalizeFormsByCategory({}));
+  const [loadingForms, setLoadingForms] = useState(true);
+  const [formsError, setFormsError] = useState("");
   const [activeCategory, setActiveCategory] = useState(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showHistoryFor, setShowHistoryFor] = useState(null);
@@ -210,10 +210,11 @@ function AdminForms() {
   const canSendToAll = !isFacultyUser;
 
   useEffect(() => {
-    initializeAcademicData();
-    const user = getCurrentUser();
-    setCurrentUser(user);
-    const allSubjects = getSubjects();
+    const load = async () => {
+      await initializeAcademicData();
+      const user = getCurrentUser();
+      setCurrentUser(user);
+      const allSubjects = await getSubjects();
     const visibleSubjects =
       user.role === ROLES.HOD && Array.isArray(user.departmentIds) && user.departmentIds.length
         ? allSubjects.filter((subject) => user.departmentIds.includes(subject.departmentId))
@@ -221,6 +222,26 @@ function AdminForms() {
           ? allSubjects.filter((subject) => user.subjectIds.includes(subject.id))
         : allSubjects;
     setSubjects(visibleSubjects);
+    };
+    load();
+  }, []);
+
+  const loadForms = async () => {
+    setLoadingForms(true);
+    setFormsError("");
+    try {
+      const forms = await fetchFormsByCategory();
+      setFormsByCategory(forms);
+    } catch (error) {
+      setFormsByCategory(normalizeFormsByCategory({}));
+      setFormsError("Unable to load forms from server.");
+    } finally {
+      setLoadingForms(false);
+    }
+  };
+
+  useEffect(() => {
+    loadForms();
   }, []);
 
   useEffect(() => {
@@ -238,7 +259,6 @@ function AdminForms() {
 
   const persistForms = (next) => {
     setFormsByCategory(next);
-    localStorage.setItem("adminForms", JSON.stringify(next));
   };
 
   const openCreate = (categoryId) => {
@@ -263,7 +283,7 @@ function AdminForms() {
     setQuestions((prev) => prev.filter((q) => q.id !== id));
   };
 
-  const saveForm = () => {
+  const saveForm = async () => {
     if (!formTitle.trim()) {
       alert("Please enter form title.");
       return;
@@ -284,7 +304,6 @@ function AdminForms() {
     }
 
     const newForm = {
-      id: Date.now(),
       title: formTitle.trim(),
       category: activeCategory,
       questions,
@@ -296,7 +315,7 @@ function AdminForms() {
       targetSubjectId: targetSubject?.id || "",
       targetSubjectCode: targetSubject?.code || "",
       targetSubjectName: targetSubject?.name || "",
-      targetYear: targetSubject?.year || "",
+      targetYear: targetSubject?.year || null,
       targetBranch: targetSubject?.branch || "",
       departmentId: targetSubject?.departmentId || currentUser.departmentIds?.[0] || "",
       departmentIds: targetSubject?.departmentId
@@ -340,26 +359,29 @@ function AdminForms() {
       }
     }
 
-    const next = {
-      ...formsByCategory,
-      [activeCategory]: [newForm, ...(formsByCategory[activeCategory] || [])],
-    };
-
-    persistForms(next);
-    setShowBuilder(false);
-    setFormTitle("");
-    setQuestions([]);
-    alert("Form created.");
+    try {
+      await postForm(newForm);
+      await loadForms();
+      setShowBuilder(false);
+      setFormTitle("");
+      setQuestions([]);
+      alert("Form created.");
+    } catch (error) {
+      alert("Failed to create form. Please try again.");
+    }
   };
 
-  const deleteForm = (categoryId, formId) => {
+  const deleteForm = async (categoryId, formId) => {
     if (!window.confirm("Delete this form?")) return;
-    const next = {
-      ...formsByCategory,
-      [categoryId]: (formsByCategory[categoryId] || []).filter((form) => String(form.id) !== String(formId)),
-    };
-    persistForms(next);
-    if (String(viewingForm?.id) === String(formId)) setViewingForm(null);
+
+    try {
+      await deleteFormById(formId);
+      await loadForms();
+      if (String(viewingForm?.id) === String(formId)) setViewingForm(null);
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert("Failed to delete form. Please try again.");
+    }
   };
 
   return (
@@ -388,6 +410,8 @@ function AdminForms() {
       <div className="forms-header">
         <h2>Forms Management</h2>
         <p>Create forms and view history by category.</p>
+        {loadingForms && <p className="form-meta">Loading forms...</p>}
+        {formsError && <p className="form-meta">{formsError}</p>}
       </div>
 
       <div className="categories-grid">
@@ -493,3 +517,10 @@ function AdminForms() {
 }
 
 export default AdminForms;
+
+
+
+
+
+
+

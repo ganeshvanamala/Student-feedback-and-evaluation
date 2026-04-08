@@ -30,7 +30,7 @@ function AdminPage({ basePath = "/admin", title = "Admin", menuItems }) {
         menuItems={menuItems}
       />
       <div className="admin-right">
-        <AdminTopbar onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+        <AdminTopbar onMenuToggle={() => setSidebarOpen((prev) => !prev)} title={title} />
         <div className="admin-content">
           <Outlet />
         </div>
@@ -40,3 +40,4 @@ function AdminPage({ basePath = "/admin", title = "Admin", menuItems }) {
 }
 
 export default AdminPage;
+

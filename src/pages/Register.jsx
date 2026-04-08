@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 import { NotificationModal } from "../components/NotificationModal";
-import { safeParse } from "../utils/storage";
+import { registerUser } from "../api/usersApi";
+import { DEPARTMENTS } from "../utils/departments";
 import logo from "../assets/logo.svg";
 import "../styles/Register.css";
 
@@ -20,10 +21,9 @@ function Register() {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationData, setNotificationData] = useState({ title: "", message: "", type: "success" });
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    
-    // Validation
+
     if (
       !fullName.trim() ||
       !studentId.trim() ||
@@ -53,51 +53,46 @@ function Register() {
       return;
     }
 
-    // Get existing registrations from localStorage
-    const registeredUsers = safeParse("registeredUsers", []);
+    try {
+      const payload = {
+        username: username.trim(),
+        password,
+        role: "student",
+        departmentId: department,
+        departmentIds: [department],
+        fullName: fullName.trim(),
+        email: email.trim(),
+        studentId: studentId.trim(),
+        year: Number(year),
+      };
 
-    // Check if username already exists
-    if (registeredUsers.some(user => user.username === username)) {
-      showToast("Username already exists! Please choose another.", "error");
-      return;
+      await registerUser(payload);
+
+      setNotificationData({
+        title: "Success!",
+        message: "Registration successful! Redirecting to login...",
+        type: "success",
+      });
+      setShowNotification(true);
+
+      setTimeout(() => {
+        navigate("/");
+      }, 2000);
+    } catch (error) {
+      console.error("API FAILED", error);
+      showToast("Registration failed!", "error");
     }
-
-    // Add new user
-    registeredUsers.push({
-      username,
-      password,
-      profile: {
-        fullName,
-        studentId,
-        email,
-        department,
-        year,
-      },
-    });
-    localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
-
-    setNotificationData({
-      title: "Success!",
-      message: "Registration successful! Redirecting to login...",
-      type: "success"
-    });
-    setShowNotification(true);
-    
-    setTimeout(() => {
-      navigate("/");
-    }, 2000);
   };
 
   return (
     <div className="register-wrapper">
-      <NotificationModal 
+      <NotificationModal
         isOpen={showNotification}
         title={notificationData.title}
         message={notificationData.message}
         type={notificationData.type}
         onClose={() => setShowNotification(false)}
       />
-      {/* Navbar */}
       <nav>
         <div className="logo">
           <img src={logo} alt="Logo" />
@@ -112,7 +107,6 @@ function Register() {
         </ul>
       </nav>
 
-      {/* Main Section */}
       <div className="register-main">
         <div className="register-card">
           <h2>Create Account</h2>
@@ -142,12 +136,17 @@ function Register() {
             />
 
             <label>Department:</label>
-            <input
-              type="text"
+            <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              placeholder="Enter department"
-            />
+            >
+              <option value="">Select department</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
 
             <label>Year:</label>
             <select
@@ -194,7 +193,6 @@ function Register() {
         </div>
       </div>
 
-      {/* Footer */}
       <footer>
         © 2025 Student Feedback & Evaluation System | Designed by Team
       </footer>

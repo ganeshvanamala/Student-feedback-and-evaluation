@@ -1,122 +1,120 @@
 import { ROLES, normalizeRole } from "./roles";
 import { inferDepartmentId } from "../utils/departments";
 
-const SESSION_KEY = "authSession";
-const USERS_KEY = "registeredUsers";
-const LEGACY_STUDENT_KEY = "currentStudent";
+const emptyUser = {
+  id: null,
+  username: "",
+  role: ROLES.GUEST,
+  departmentIds: [],
+  subjectIds: [],
+  facultyId: null,
+  studentId: null,
+  permissions: [],
+  profile: null,
+  password: null,
+};
 
-const defaultSession = Object.freeze({
-  isAuthenticated: false,
-  user: {
-    id: null,
-    username: "",
-    role: ROLES.GUEST,
-    departmentIds: [],
-    subjectIds: [],
-    facultyId: null,
-    studentId: null,
-    permissions: [],
-  },
+export const AUTH_KEYS = Object.freeze({
+  SESSION_KEY: "authSession",
+  USERS_KEY: "apiUsers",
+  LEGACY_STUDENT_KEY: "apiCurrentUser",
 });
 
-function safeReadJSON(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeArray(value) {
+const normalizeArray = (value) => {
   if (Array.isArray(value)) return value.filter(Boolean);
   if (value === null || value === undefined || value === "") return [];
   return [value];
-}
+};
 
-function normalizeDepartmentIds(value) {
-  return normalizeArray(value)
+const normalizeDepartmentIds = (value) =>
+  normalizeArray(value)
     .map((item) => inferDepartmentId(item))
     .filter((item, index, arr) => Boolean(item) && arr.indexOf(item) === index);
-}
 
-function normalizeUser(rawUser = {}) {
-  return {
-    id: rawUser.id || rawUser.userId || rawUser.username || null,
-    username: rawUser.username || "",
-    role: normalizeRole(rawUser.role),
-    departmentIds: normalizeDepartmentIds(rawUser.departmentIds || rawUser.departmentId),
-    subjectIds: normalizeArray(rawUser.subjectIds || rawUser.subjectId),
-    facultyId: rawUser.facultyId || null,
-    studentId: rawUser.studentId || rawUser.profile?.studentId || null,
-    permissions: normalizeArray(rawUser.permissions),
-    profile: rawUser.profile || null,
-  };
-}
+const normalizeUser = (rawUser = {}) => ({
+  id: rawUser.id || rawUser.userId || rawUser.username || null,
+  username: rawUser.username || "",
+  role: normalizeRole(rawUser.role),
+  departmentIds: normalizeDepartmentIds(rawUser.departmentIds || rawUser.departmentId),
+  subjectIds: normalizeArray(rawUser.subjectIds || rawUser.subjectId),
+  facultyId: rawUser.facultyId || null,
+  studentId: rawUser.studentId || rawUser.profile?.studentId || null,
+  permissions: normalizeArray(rawUser.permissions),
+  profile: rawUser.profile || null,
+  password: rawUser.password || null,
+});
 
-function buildSession(user, isAuthenticated = true) {
-  return {
-    isAuthenticated: Boolean(isAuthenticated),
-    user: normalizeUser(user),
-  };
-}
+const buildSession = (user, isAuthenticated = true) => ({
+  isAuthenticated: Boolean(isAuthenticated),
+  user: normalizeUser(user),
+});
 
-function readLegacyStudentSession() {
-  const username = localStorage.getItem(LEGACY_STUDENT_KEY);
-  if (!username) return null;
+const canUseStorage = () => typeof window !== "undefined" && !!window.localStorage;
 
-  const users = safeReadJSON(USERS_KEY, []);
-  const matched = users.find((item) => item?.username === username);
+const persistSession = (session) => {
+  if (!canUseStorage()) return;
+  try {
+    const toPersist = {
+      isAuthenticated: Boolean(session?.isAuthenticated),
+      user: {
+        ...normalizeUser(session?.user || {}),
+        password: null,
+      },
+    };
+    localStorage.setItem(AUTH_KEYS.SESSION_KEY, JSON.stringify(toPersist));
+  } catch (error) {
+    console.error("API FAILED", error);
+  }
+};
 
-  return buildSession(
-    {
-      ...matched,
-      username,
-      role: ROLES.STUDENT,
-      studentId: matched?.profile?.studentId || null,
-      departmentIds: normalizeDepartmentIds(matched?.profile?.department),
-    },
-    true
-  );
-}
+const readPersistedSession = () => {
+  if (!canUseStorage()) return null;
+  try {
+    const raw = localStorage.getItem(AUTH_KEYS.SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.isAuthenticated || !parsed.user) return null;
+    return buildSession({ ...parsed.user, password: null }, true);
+  } catch (error) {
+    console.error("API FAILED", error);
+    return null;
+  }
+};
+
+let inMemorySession = readPersistedSession() || {
+  isAuthenticated: false,
+  user: { ...emptyUser },
+};
 
 export function getSession() {
-  const stored = safeReadJSON(SESSION_KEY, null);
-  if (stored?.user?.role) return buildSession(stored.user, stored.isAuthenticated !== false);
-
-  const legacyStudent = readLegacyStudentSession();
-  if (legacyStudent) return legacyStudent;
-
-  return { ...defaultSession };
+  return inMemorySession;
 }
 
 export function getCurrentUser() {
-  return getSession().user;
+  return inMemorySession.user;
 }
 
 export function isAuthenticated() {
-  return getSession().isAuthenticated;
+  return inMemorySession.isAuthenticated;
 }
 
 export function setSession(user) {
-  const session = buildSession(user, true);
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-
-  // Keep current student key synchronized for backward compatibility.
-  if (session.user.role === ROLES.STUDENT && session.user.username) {
-    localStorage.setItem(LEGACY_STUDENT_KEY, session.user.username);
-  }
-
-  return session;
+  inMemorySession = buildSession(user, true);
+  persistSession(inMemorySession);
+  return inMemorySession;
 }
 
 export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(LEGACY_STUDENT_KEY);
-}
+  inMemorySession = {
+    isAuthenticated: false,
+    user: { ...emptyUser },
+  };
 
-export const AUTH_KEYS = Object.freeze({
-  SESSION_KEY,
-  USERS_KEY,
-  LEGACY_STUDENT_KEY,
-});
+  if (canUseStorage()) {
+    try {
+      localStorage.removeItem(AUTH_KEYS.SESSION_KEY);
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
+  }
+}

@@ -1,21 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/Student.css";
 import {
-  countStudentComplaints,
   countStudentSubmittedFeedback,
   getAvailableFormsForStudent,
   getStudentRepliesForUser,
 } from "../domain/selectors";
-
-const parseJSON = (key, fallback) => {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch (error) {
-    return fallback;
-  }
-};
+import { fetchFormsByCategory } from "../api/formsApi";
+import { clearSession, getCurrentUser, setSession } from "../auth/session";
+import { fetchReplies, markRepliesRead } from "../api/repliesApi";
+import { fetchComplaints } from "../api/complaintsApi";
+import { updatePassword } from "../api/usersApi";
+import { getDepartmentNameById } from "../utils/departments";
 
 const Student = () => {
   const navigate = useNavigate();
@@ -29,14 +25,16 @@ const Student = () => {
   const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState(null);
+  const [formsLoading, setFormsLoading] = useState(true);
+  const [formsError, setFormsError] = useState("");
+  const seenFormIdsRef = useRef(new Set());
 
-  const currentStudent = useMemo(() => localStorage.getItem("currentStudent") || "", []);
+  const currentStudent = useMemo(() => getCurrentUser().username || "", []);
 
-  const loadData = () => {
-    const registeredUsers = parseJSON("registeredUsers", []);
-    const loggedInUser = registeredUsers.find((u) => u.username === currentStudent);
+  const loadData = async () => {
+    const loggedInUser = getCurrentUser();
 
-    if (!currentStudent || !loggedInUser) {
+    if (!currentStudent || !loggedInUser || loggedInUser.role !== "student") {
       navigate("/");
       return;
     }
@@ -49,48 +47,68 @@ const Student = () => {
       year: "Not provided",
     };
 
+    const departmentId = loggedInUser.departmentId || loggedInUser.departmentIds?.[0] || "";
+
     setStudentUser({
       username: loggedInUser.username,
-      password: loggedInUser.password,
-      profile: { ...profileDefaults, ...(loggedInUser.profile || {}) },
-    });
-
-    const adminForms = parseJSON("adminForms", {});
-    const availableForms = getAvailableFormsForStudent(adminForms);
-    setForms(availableForms);
-
-    const allReplies = parseJSON("studentReplies", []);
-    const myReplies = getStudentRepliesForUser(allReplies, currentStudent);
-    setReplies(myReplies);
-
-    const feedbackCount = countStudentSubmittedFeedback(adminForms, currentStudent);
-    const complaintsCount = countStudentComplaints(
-      {
-        academics: parseJSON("academicsComplaints", []),
-        sports: parseJSON("sportsComplaints", []),
-        hostel: parseJSON("hostelComplaints", []),
+      password: loggedInUser.password || "",
+      profile: {
+        ...profileDefaults,
+        fullName: loggedInUser.profile?.fullName || loggedInUser.fullName || profileDefaults.fullName,
+        studentId: loggedInUser.profile?.studentId || loggedInUser.studentId || profileDefaults.studentId,
+        email: loggedInUser.profile?.email || loggedInUser.email || profileDefaults.email,
+        department:
+          loggedInUser.profile?.department ||
+          getDepartmentNameById(departmentId, departmentId || profileDefaults.department),
+        year: loggedInUser.profile?.year || loggedInUser.year || profileDefaults.year,
       },
-      currentStudent
-    );
-
-    setStats({
-      submittedFeedback: feedbackCount,
-      submittedComplaints: complaintsCount,
     });
 
-    const seenKey = `studentSeenForms_${currentStudent}`;
-    const seenForms = parseJSON(seenKey, []);
-    const unseen = availableForms.filter((form) => !seenForms.includes(form.id));
-    setNewForms(unseen);
+    setFormsLoading(true);
+    setFormsError("");
 
-    if (activeMenu === "dashboard" && availableForms.length > 0) {
-      localStorage.setItem(seenKey, JSON.stringify(availableForms.map((form) => form.id)));
+    try {
+      const [adminForms, allReplies, allComplaints] = await Promise.all([
+        fetchFormsByCategory(),
+        fetchReplies(currentStudent),
+        fetchComplaints(),
+      ]);
+
+      const availableForms = getAvailableFormsForStudent(adminForms);
+      setForms(availableForms);
+
+      const myReplies = getStudentRepliesForUser(allReplies, currentStudent);
+      setReplies(myReplies);
+
+      const feedbackCount = countStudentSubmittedFeedback(adminForms, currentStudent);
+      const complaintsCount = (Array.isArray(allComplaints) ? allComplaints : []).filter(
+        (item) => item?.submittedBy === currentStudent
+      ).length;
+
+      setStats({
+        submittedFeedback: feedbackCount,
+        submittedComplaints: complaintsCount,
+      });
+
+      const unseen = availableForms.filter((form) => !seenFormIdsRef.current.has(form.id));
+      setNewForms(activeMenu === "dashboard" ? [] : unseen);
+
+      if (activeMenu === "dashboard") {
+        availableForms.forEach((form) => seenFormIdsRef.current.add(form.id));
+      }
+    } catch (error) {
+      console.error("API FAILED", error);
+      setFormsError("Unable to load student data from server.");
+      setForms([]);
+      setReplies([]);
+      setStats({ submittedFeedback: 0, submittedComplaints: 0 });
+    } finally {
+      setFormsLoading(false);
     }
   };
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMenu]);
 
   useEffect(() => {
@@ -113,27 +131,26 @@ const Student = () => {
       return;
     }
 
-    const allReplies = parseJSON("studentReplies", []);
-    const hasUnread = allReplies.some((reply) => reply.targetUser === currentStudent && !reply.isRead);
-
+    const hasUnread = replies.some((reply) => !reply.isRead);
     if (!hasUnread) {
       return;
     }
 
-    const updatedReplies = allReplies.map((reply) => {
-      if (reply.targetUser !== currentStudent) {
-        return reply;
+    const markRead = async () => {
+      try {
+        const updatedReplies = await markRepliesRead(currentStudent);
+        setReplies(
+          updatedReplies
+            .filter((reply) => reply.targetUser === currentStudent)
+            .sort((a, b) => (b.id || 0) - (a.id || 0))
+        );
+      } catch (error) {
+        console.error("API FAILED", error);
       }
-      return { ...reply, isRead: true };
-    });
+    };
 
-    localStorage.setItem("studentReplies", JSON.stringify(updatedReplies));
-    setReplies(
-      updatedReplies
-        .filter((reply) => reply.targetUser === currentStudent)
-        .sort((a, b) => (b.id || 0) - (a.id || 0))
-    );
-  }, [activeMenu, currentStudent]);
+    markRead();
+  }, [activeMenu, currentStudent, replies]);
 
   const unreadReplies = replies.filter((reply) => !reply.isRead).length;
 
@@ -173,15 +190,10 @@ const Student = () => {
     if (category === "hostel") navigate("/hostel-feedback");
   };
 
-  const handlePasswordChange = (event) => {
+  const handlePasswordChange = async (event) => {
     event.preventDefault();
 
     if (!studentUser) return;
-
-    if (passwordForm.current !== studentUser.password) {
-      alert("Current password is incorrect.");
-      return;
-    }
 
     if (passwordForm.next.length < 6) {
       alert("New password must be at least 6 characters.");
@@ -193,19 +205,25 @@ const Student = () => {
       return;
     }
 
-    const registeredUsers = parseJSON("registeredUsers", []);
-    const updatedUsers = registeredUsers.map((user) =>
-      user.username === studentUser.username ? { ...user, password: passwordForm.next } : user
-    );
+    try {
+      await updatePassword({
+        username: studentUser.username,
+        currentPassword: passwordForm.current,
+        newPassword: passwordForm.next,
+      });
 
-    localStorage.setItem("registeredUsers", JSON.stringify(updatedUsers));
-    setStudentUser((prev) => ({ ...prev, password: passwordForm.next }));
-    setPasswordForm({ current: "", next: "", confirm: "" });
-    alert("Password updated successfully.");
+      setStudentUser((prev) => ({ ...prev, password: passwordForm.next }));
+      setSession({ ...getCurrentUser(), password: passwordForm.next });
+      setPasswordForm({ current: "", next: "", confirm: "" });
+      alert("Password updated successfully.");
+    } catch (error) {
+      console.error("API FAILED", error);
+      alert(error?.message || "Unable to update password.");
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem("currentStudent");
+    clearSession();
     navigate("/");
   };
 
@@ -240,7 +258,7 @@ const Student = () => {
             aria-expanded={expandedMenu === "complaints"}
           >
             <span>Complaints</span>
-            <span className="menu-caret">{expandedMenu === "complaints" ? "−" : "+"}</span>
+            <span className="menu-caret">{expandedMenu === "complaints" ? "-" : "+"}</span>
           </button>
           <div className={`submenu-wrap ${expandedMenu === "complaints" ? "open" : "closed"}`}>
             <button className="sidebar-item submenu-item" onClick={() => navigateComplaint("academics")}>Academics</button>
@@ -256,7 +274,7 @@ const Student = () => {
             aria-expanded={expandedMenu === "feedback"}
           >
             <span>Feedback</span>
-            <span className="menu-caret">{expandedMenu === "feedback" ? "−" : "+"}</span>
+            <span className="menu-caret">{expandedMenu === "feedback" ? "-" : "+"}</span>
           </button>
           <div className={`submenu-wrap ${expandedMenu === "feedback" ? "open" : "closed"}`}>
             <button className="sidebar-item submenu-item" onClick={() => navigateFeedback("academics")}>Academics</button>
@@ -320,9 +338,11 @@ const Student = () => {
 
               <div className="panel-card">
                 <h3>Latest Forms</h3>
-                {forms.length === 0 ? (
+                {formsLoading && <p>Loading forms...</p>}
+                {!formsLoading && formsError && <p>{formsError}</p>}
+                {!formsLoading && forms.length === 0 ? (
                   <p>No forms available yet.</p>
-                ) : (
+                ) : forms.length > 0 ? (
                   <ul>
                     {forms.slice(0, 5).map((form) => (
                       <li key={form.id}>
@@ -331,7 +351,7 @@ const Student = () => {
                       </li>
                     ))}
                   </ul>
-                )}
+                ) : null}
               </div>
 
               <div className="panel-card">

@@ -96,7 +96,7 @@ export const getComplaintRows = ({ academics = [], sports = [], hostel = [] }) =
       storageIndex: i,
       category: "academics",
       complaintId: c.complaintId || `academics-${i}`,
-      studentId: c.id || "",
+      studentId: c.studentId || c.id || "",
       submittedBy: c.submittedBy || "unknown",
     })),
     ...toArray(sports).map((c, i) => ({
@@ -105,7 +105,7 @@ export const getComplaintRows = ({ academics = [], sports = [], hostel = [] }) =
       storageIndex: i,
       category: "sports",
       complaintId: c.complaintId || `sports-${i}`,
-      studentId: c.id || "",
+      studentId: c.studentId || c.id || "",
       submittedBy: c.submittedBy || "unknown",
     })),
     ...toArray(hostel).map((c, i) => ({
@@ -114,7 +114,7 @@ export const getComplaintRows = ({ academics = [], sports = [], hostel = [] }) =
       storageIndex: i,
       category: "hostel",
       complaintId: c.complaintId || `hostel-${i}`,
-      studentId: c.id || "",
+      studentId: c.studentId || c.id || "",
       submittedBy: c.submittedBy || "unknown",
     })),
   ]
@@ -139,3 +139,4 @@ export const getScopedResponseRowsFromForms = (rawForms, user) =>
 
 export const getScopedComplaintRows = (complaintsByCategory, user) =>
   getComplaintRows(complaintsByCategory).filter((row) => canViewComplaint(user, row));
+

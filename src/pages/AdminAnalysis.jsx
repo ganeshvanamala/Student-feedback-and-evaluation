@@ -12,10 +12,9 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import { getFaculty, getSubjects, initializeAcademicData } from "../utils/academicData";
-import { safeParse } from "../utils/storage";
 import { getCurrentUser } from "../auth/session";
 import { getScopedFormsForUser } from "../domain/selectors";
+import { fetchFormsByCategory } from "../api/formsApi";
 
 ChartJS.register(
   ArcElement,
@@ -29,7 +28,6 @@ ChartJS.register(
   PointElement
 );
 
-const SAMPLE_FORMS_KEY = "analysisSampleForms";
 const CATEGORY_ORDER = ["academics", "sports", "hostel"];
 const CATEGORY_LABELS = {
   academics: "Academics",
@@ -128,11 +126,9 @@ const buildQuestionAnalysis = (question, responses) => {
   };
 };
 
-const buildAnalysis = (user) => {
-  const rawForms = safeParse("adminForms", {});
+const buildAnalysis = (user, rawForms) => {
   const scopedForms = getScopedFormsForUser(rawForms, user);
-  const sampleForms = safeParse(SAMPLE_FORMS_KEY, []);
-  const forms = [...normalizeForms({ scoped: scopedForms }), ...(user.role === "admin" ? sampleForms : [])].filter(
+  const forms = normalizeForms({ scoped: scopedForms }).filter(
     (form) => CATEGORY_ORDER.includes(form?.category) && Array.isArray(form?.questions)
   );
 
@@ -161,200 +157,35 @@ const buildAnalysis = (user) => {
   return { grouped, summary };
 };
 
-const randomPick = (items) => items[Math.floor(Math.random() * items.length)];
-
-const generateSampleData = () => {
-  initializeAcademicData();
-  const subjects = getSubjects();
-  const faculty = getFaculty();
-
-  const academicsSubjects = subjects.filter((subject) => subject.branch === "CSE" || subject.branch === "ECE");
-  const facultyNames = faculty.map((item) => item.name);
-
-  const mkTs = (daysAgo) => new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toLocaleString();
-  const mkId = () => Date.now() + Math.floor(Math.random() * 100000);
-
-  const academicsFormA = {
-    id: mkId(),
-    title: "Faculty Teaching Quality Survey",
-    category: "academics",
-    createdAt: new Date().toLocaleDateString(),
-    questions: [
-      { id: "a1", text: "How do you rate teaching clarity?", type: "stars" },
-      { id: "a2", text: "How useful are the class notes?", type: "radio-5" },
-      { id: "a3", text: "How would you rate difficulty level?", type: "slider" },
-    ],
-    responses: Array.from({ length: 32 }, (_, i) => {
-      const subject = randomPick(academicsSubjects);
-      return {
-        id: mkId(),
-        timestamp: mkTs(i % 14),
-        submittedBy: `student${i + 1}`,
-        category: "academics",
-        contextData: {
-          year: subject?.year || 2,
-          dept: subject?.branch || "CSE",
-          subjectId: subject?.id || "",
-          course: subject?.name || "DBMS",
-          courseCode: subject?.code || "CS301",
-          faculty: randomPick(facultyNames) || "Dr. Priya Sharma",
-        },
-        answers: {
-          a1: randomPick([3, 4, 5, 4, 5]),
-          a2: randomPick([2, 3, 4, 4, 5]),
-          a3: randomPick([4, 5, 6, 7, 8, 9]),
-        },
-      };
-    }),
-  };
-
-  const academicsFormB = {
-    id: mkId(),
-    title: "Course Content & Assessment Survey",
-    category: "academics",
-    createdAt: new Date().toLocaleDateString(),
-    questions: [
-      { id: "a5", text: "How relevant is syllabus content?", type: "radio-5" },
-      { id: "a6", text: "Rate assessment fairness", type: "stars" },
-      {
-        id: "a7",
-        text: "Preferred evaluation type",
-        type: "multiple-choice",
-        options: ["Assignments", "Quizzes", "Mid Exam", "Project"],
-      },
-    ],
-    responses: Array.from({ length: 26 }, (_, i) => {
-      const subject = randomPick(academicsSubjects);
-      return {
-        id: mkId(),
-        timestamp: mkTs(i % 11),
-        submittedBy: `student_a2_${i + 1}`,
-        category: "academics",
-        contextData: {
-          year: subject?.year || 3,
-          dept: subject?.branch || "CSE",
-          subjectId: subject?.id || "",
-          course: subject?.name || "Data Structures",
-          courseCode: subject?.code || "CS201",
-          faculty: randomPick(facultyNames) || "Dr. Priya Sharma",
-        },
-        answers: {
-          a5: randomPick([2, 3, 4, 4, 5]),
-          a6: randomPick([3, 4, 4, 5, 5]),
-          a7: randomPick(["Assignments", "Quizzes", "Mid Exam", "Project"]),
-        },
-      };
-    }),
-  };
-
-  const sportsFormA = {
-    id: mkId(),
-    title: "Sports Facilities Survey",
-    category: "sports",
-    createdAt: new Date().toLocaleDateString(),
-    questions: [
-      { id: "s1", text: "Rate sports ground quality", type: "stars" },
-      { id: "s2", text: "Rate coach support", type: "radio-5" },
-      {
-        id: "s3",
-        text: "Preferred sport",
-        type: "multiple-choice",
-        options: ["Cricket", "Football", "Basketball", "Badminton"],
-      },
-    ],
-    responses: Array.from({ length: 24 }, (_, i) => ({
-      id: mkId(),
-      timestamp: mkTs(i % 12),
-      submittedBy: `student_s_${i + 1}`,
-      category: "sports",
-      contextData: { faculty: randomPick(["Coach Rao", "Coach Patel", "Coach Khan"]) },
-      answers: {
-        s1: randomPick([2, 3, 4, 4, 5]),
-        s2: randomPick([2, 3, 3, 4, 5]),
-        s3: randomPick(["Cricket", "Football", "Basketball", "Badminton"]),
-      },
-    })),
-  };
-
-  const sportsFormB = {
-    id: mkId(),
-    title: "Sports Event Participation Survey",
-    category: "sports",
-    createdAt: new Date().toLocaleDateString(),
-    questions: [
-      { id: "s4", text: "How likely are you to join events?", type: "slider" },
-      {
-        id: "s5",
-        text: "Which issue limits participation?",
-        type: "multiple-choice",
-        options: ["Timing", "Equipment", "Coaching", "Ground access"],
-      },
-      { id: "s6", text: "Rate event management", type: "radio-5" },
-    ],
-    responses: Array.from({ length: 19 }, (_, i) => ({
-      id: mkId(),
-      timestamp: mkTs(i % 9),
-      submittedBy: `student_s2_${i + 1}`,
-      category: "sports",
-      contextData: { faculty: randomPick(["Coach Rao", "Coach Patel", "Coach Khan"]) },
-      answers: {
-        s4: randomPick([3, 4, 5, 6, 7, 8, 9]),
-        s5: randomPick(["Timing", "Equipment", "Coaching", "Ground access"]),
-        s6: randomPick([2, 3, 4, 4, 5]),
-      },
-    })),
-  };
-
-  const hostelForm = {
-    id: mkId(),
-    title: "Hostel Life Survey",
-    category: "hostel",
-    createdAt: new Date().toLocaleDateString(),
-    questions: [
-      { id: "h1", text: "Rate cleanliness", type: "stars" },
-      { id: "h2", text: "Rate food quality", type: "slider" },
-      {
-        id: "h3",
-        text: "Major issue",
-        type: "multiple-choice",
-        options: ["Water", "Food", "WiFi", "Maintenance"],
-      },
-    ],
-    responses: Array.from({ length: 22 }, (_, i) => ({
-      id: mkId(),
-      timestamp: mkTs(i % 10),
-      submittedBy: `student_h_${i + 1}`,
-      category: "hostel",
-      contextData: { faculty: randomPick(["Warden A", "Warden B"]) },
-      answers: {
-        h1: randomPick([2, 3, 3, 4, 4, 5]),
-        h2: randomPick([3, 4, 5, 6, 7, 8]),
-        h3: randomPick(["Water", "Food", "WiFi", "Maintenance"]),
-      },
-    })),
-  };
-
-  localStorage.setItem(
-    SAMPLE_FORMS_KEY,
-    JSON.stringify([academicsFormA, academicsFormB, sportsFormA, sportsFormB, hostelForm])
-  );
-};
-
 function AdminAnalysis() {
   const user = getCurrentUser();
   const [refreshToken, setRefreshToken] = useState(0);
   const [activeCategory, setActiveCategory] = useState("academics");
   const [selectedFormId, setSelectedFormId] = useState(null);
+  const [rawForms, setRawForms] = useState({});
+  const [formsLoading, setFormsLoading] = useState(true);
+  const [formsError, setFormsError] = useState("");
 
   useEffect(() => {
-    const existing = safeParse(SAMPLE_FORMS_KEY, []);
-    if (!Array.isArray(existing) || existing.length < 5) {
-      generateSampleData();
-    }
-    setRefreshToken((value) => value + 1);
+    const loadAnalysisData = async () => {
+      setFormsLoading(true);
+      setFormsError("");
+      try {
+        const forms = await fetchFormsByCategory();
+        setRawForms(forms);
+        setRefreshToken((value) => value + 1);
+      } catch (error) {
+        setRawForms({ academics: [], sports: [], hostel: [] });
+        setFormsError("Unable to load forms for analysis.");
+      } finally {
+        setFormsLoading(false);
+      }
+    };
+
+    loadAnalysisData();
   }, []);
 
-  const analysis = useMemo(() => buildAnalysis(user), [refreshToken, user]);
+  const analysis = useMemo(() => buildAnalysis(user, rawForms), [refreshToken, rawForms, user]);
   const categoryForms = analysis.grouped[activeCategory] || [];
 
   useEffect(() => {
@@ -448,6 +279,8 @@ function AdminAnalysis() {
       <div className="analysis-header">
         <h2>Feedback Analysis</h2>
         <p>Select category, then form, then review faculty-wise question insights.</p>
+        {formsLoading && <p>Loading forms...</p>}
+        {!formsLoading && formsError && <p>{formsError}</p>}
       </div>
 
       <div className="analysis-category-cards">
@@ -559,3 +392,5 @@ function AdminAnalysis() {
 }
 
 export default AdminAnalysis;
+
+
