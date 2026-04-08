@@ -2,6 +2,7 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.svg";
 import { clearSession } from "../auth/session";
+import { logoutUser } from "../api/usersApi";
 
 function AdminSidebar({ isOpen, onClose, basePath = "/admin", title = "Admin", menuItems }) {
   const navigate = useNavigate();
@@ -21,7 +22,12 @@ function AdminSidebar({ isOpen, onClose, basePath = "/admin", title = "Admin", m
 
   const isActive = (path) => location.pathname === path;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("API FAILED", error);
+    }
     clearSession();
     navigate("/");
     onClose?.();

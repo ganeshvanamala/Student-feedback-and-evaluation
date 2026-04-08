@@ -127,6 +127,11 @@
   padding-left: 24px;
 }
 
+.student-sidebar .sidebar-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .menu-caret {
   font-size: 18px;
   opacity: 0.85;
@@ -353,6 +358,12 @@
   gap: 8px;
 }
 
+.profile-completion-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .password-form input {
   border: 1px solid var(--input-border);
   border-radius: 8px;
@@ -361,6 +372,43 @@
   padding: 10px;
   margin-bottom: 8px;
   font-family: inherit;
+}
+
+.profile-completion-form input,
+.profile-completion-form select {
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  padding: 10px;
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+
+.profile-help {
+  margin: 0 0 8px;
+  color: var(--muted-text);
+}
+
+.profile-message {
+  margin: 4px 0 10px;
+  color: #b22222;
+  font-weight: 600;
+}
+
+.profile-note {
+  margin: 0;
+  color: var(--muted-text);
+}
+
+.profile-alert-banner {
+  background: rgba(178, 34, 34, 0.14);
+  border: 1px solid rgba(178, 34, 34, 0.45);
+  color: #9a1f1f;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  font-weight: 600;
 }
 
 .sidebar-overlay {

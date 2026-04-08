@@ -1,11 +1,13 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import "../styles/Home.css";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { Captcha } from "../components/Captcha";
 import logo from "../assets/logo.svg";
 import { setSession } from "../auth/session";
 import { ROLES } from "../auth/roles";
 import { loginUser } from "../api/usersApi";
+import { googleLogin as googleLoginApi } from "../api/authApi";
 import { getDepartmentNameById } from "../utils/departments";
 
 function Home() {
@@ -33,8 +35,35 @@ function Home() {
     };
   }, []);
 
-  const credentials = {
-    admin: { id: "admin123", pass: "admin@123" },
+  const buildSessionUser = (user, fallbackId = "") => {
+    const role = String(user?.role || "").toLowerCase();
+    const departmentId = user?.departmentId || user?.departmentIds?.[0] || "";
+    return {
+      ...user,
+      id: user?.id || user?.userId || user?.username || fallbackId,
+      username: user?.username || user?.email || fallbackId,
+      role,
+      departmentId,
+      departmentIds: user?.departmentIds || (departmentId ? [departmentId] : []),
+      subjectIds: user?.subjectIds || [],
+      studentId: user?.studentId || null,
+      profile: {
+        fullName: user?.profile?.fullName || user?.fullName || "Not provided",
+        studentId: user?.profile?.studentId || user?.studentId || "Not provided",
+        email: user?.profile?.email || user?.email || "Not provided",
+        department:
+          user?.profile?.department ||
+          getDepartmentNameById(departmentId, departmentId || "Not provided"),
+        year: user?.profile?.year || user?.year || "Not provided",
+      },
+    };
+  };
+
+  const navigateByRole = (role) => {
+    if (role === ROLES.ADMIN) navigate("/admin");
+    else if (role === ROLES.HOD) navigate("/hod");
+    else if (role === ROLES.FACULTY) navigate("/faculty");
+    else navigate("/student");
   };
 
   const login = async (type) => {
@@ -43,76 +72,62 @@ function Home() {
       return;
     }
 
-    if (type === "student" || type === "hod" || type === "faculty") {
-      try {
-        const loginData = {
-          username: loginId,
-          password: loginPass,
-        };
+    try {
+      const authResponse = await loginUser({
+        username: loginId,
+        password: loginPass,
+      });
 
-        const user = await loginUser(loginData);
-        const role = String(user?.role || "").toLowerCase();
+      const user = authResponse?.user || {};
+      const token = authResponse?.token || "";
+      const expiresAt = authResponse?.expiresAt || null;
+      const role = String(user?.role || "").toLowerCase();
 
-        if (!role || ![ROLES.STUDENT, ROLES.HOD, ROLES.FACULTY, ROLES.ADMIN].includes(role)) {
-          setLoginMessage("This account has an invalid role configuration.");
-          return;
-        }
-
-        if (role !== type) {
-          setLoginMessage(`This account is not a ${type.toUpperCase()} account.`);
-          return;
-        }
-
-        const departmentId = user?.departmentId || user?.departmentIds?.[0] || "";
-
-        const sessionUser = {
-          ...user,
-          id: user?.id || user?.userId || user?.username || loginId,
-          username: user?.username || loginId,
-          role,
-          departmentId,
-          departmentIds: user?.departmentIds || (departmentId ? [departmentId] : []),
-          subjectIds: user?.subjectIds || [],
-          studentId: user?.studentId || user?.profile?.studentId || null,
-          profile: {
-            fullName: user?.profile?.fullName || user?.fullName || "Not provided",
-            studentId: user?.profile?.studentId || user?.studentId || "Not provided",
-            email: user?.profile?.email || user?.email || "Not provided",
-            department:
-              user?.profile?.department ||
-              getDepartmentNameById(departmentId, departmentId || "Not provided"),
-            year: user?.profile?.year || user?.year || "Not provided",
-          },
-          password: loginPass,
-        };
-
-        setSession(sessionUser);
-        setLoginMessage("");
-
-        if (role === ROLES.HOD) {
-          navigate("/hod");
-        } else if (role === ROLES.FACULTY) {
-          navigate("/faculty");
-        } else {
-          navigate("/student");
-        }
-      } catch (error) {
-        console.error("API FAILED", error);
-        setLoginMessage("Invalid ID or Password!");
+      if (!token) {
+        setLoginMessage("Login failed. Session token missing.");
+        return;
       }
-    } else {
-      if (loginId === credentials[type].id && loginPass === credentials[type].pass) {
-        setSession({
-          id: credentials[type].id,
-          username: credentials[type].id,
-          role: ROLES.ADMIN,
-          permissions: ["*"],
-          password: loginPass,
-        });
-        navigate("/admin");
+
+      if (!role || ![ROLES.STUDENT, ROLES.HOD, ROLES.FACULTY, ROLES.ADMIN].includes(role)) {
+        setLoginMessage("This account has an invalid role configuration.");
+        return;
+      }
+
+      if (role !== type) {
+        setLoginMessage(`This account is not a ${type.toUpperCase()} account.`);
+        return;
+      }
+
+      const sessionUser = buildSessionUser(user, loginId);
+      setSession(sessionUser, token, expiresAt);
+      setLoginMessage("");
+      navigateByRole(role);
+    } catch (error) {
+      console.error("API FAILED", error);
+      setLoginMessage(error?.message || "Invalid ID or Password!");
+    }
+  };
+
+  const onGoogleLoginSuccess = async (credentialResponse) => {
+    try {
+      const token = credentialResponse?.credential || "";
+      if (!token) {
+        setLoginMessage("Google login failed.");
+        return;
+      }
+
+      const user = await googleLoginApi(token);
+      const role = String(user?.role || ROLES.STUDENT).toLowerCase();
+      const sessionUser = buildSessionUser(user, user?.username || "");
+      setSession(sessionUser, "google-oauth", Date.now() + 8 * 60 * 60 * 1000);
+      if (role === ROLES.STUDENT) {
+        setLoginMessage("Google sign-in successful. If any details are missing, complete them in Profile.");
       } else {
-        setLoginMessage("Invalid ID or Password!");
+        setLoginMessage("");
       }
+      navigateByRole(role);
+    } catch (error) {
+      setLoginMessage(error?.message || "Google login failed.");
     }
   };
 
@@ -131,11 +146,11 @@ function Home() {
 
       {currentView === "about" && (
         <div className="page-content">
-          <button className="back-btn" onClick={() => setCurrentView("home")}>â† Back to Home</button>
+          <button className="back-btn" onClick={() => setCurrentView("home")}>← Back to Home</button>
           <div className="about-card">
             <h1>About Us</h1>
             <p className="intro">
-              Welcome to the <strong>Student Feedback & Evaluation System</strong> â€” a comprehensive platform
+              Welcome to the <strong>Student Feedback & Evaluation System</strong> — a comprehensive platform
               designed to bridge the gap between students and institutions.
             </p>
 
@@ -158,12 +173,12 @@ function Home() {
             <div className="about-section">
               <h2>Key Features</h2>
               <ul>
-                <li>âœ… Student Registration & Secure Login</li>
-                <li>âœ… Category-based Feedback (Academics, Sports, Hostel)</li>
-                <li>âœ… Dynamic Admin Form Builder</li>
-                <li>âœ… Real-time Response Analytics</li>
-                <li>âœ… Complaint Management System</li>
-                <li>âœ… Multi-level Rating Options (Stars, Sliders, Checkboxes)</li>
+                <li>✅ Student Registration & Secure Login</li>
+                <li>✅ Category-based Feedback (Academics, Sports, Hostel)</li>
+                <li>✅ Dynamic Admin Form Builder</li>
+                <li>✅ Real-time Response Analytics</li>
+                <li>✅ Complaint Management System</li>
+                <li>✅ Multi-level Rating Options (Stars, Sliders, Checkboxes)</li>
               </ul>
             </div>
 
@@ -205,7 +220,7 @@ function Home() {
 
       {currentView === "contact" && (
         <div className="page-content">
-          <button className="back-btn" onClick={() => setCurrentView("home")}>â† Back to Home</button>
+          <button className="back-btn" onClick={() => setCurrentView("home")}>← Back to Home</button>
           <div className="contact-card">
             <h1>Contact Us</h1>
             <p className="intro">
@@ -216,19 +231,19 @@ function Home() {
               <h2>Get in Touch</h2>
               <div className="contact-info">
                 <div className="contact-item">
-                  <strong>ðŸ“§ Email:</strong>
+                  <strong>📧 Email:</strong>
                   <p><a href="mailto:feedback@studentfeedback.com">feedback@studentfeedback.com</a></p>
                 </div>
                 <div className="contact-item">
-                  <strong>ðŸ“± Phone:</strong>
+                  <strong>📱 Phone:</strong>
                   <p>+91-XXXX-XXXX-XX</p>
                 </div>
                 <div className="contact-item">
-                  <strong>ðŸ¢ Address:</strong>
+                  <strong>🏢 Address:</strong>
                   <p>Educational Institute Campus<br/>City, State - 123456<br/>India</p>
                 </div>
                 <div className="contact-item">
-                  <strong>â° Working Hours:</strong>
+                  <strong>⏰ Working Hours:</strong>
                   <p>Monday - Friday: 9:00 AM - 6:00 PM<br/>Saturday: 10:00 AM - 4:00 PM<br/>Sunday: Closed</p>
                 </div>
               </div>
@@ -290,13 +305,13 @@ function Home() {
                 <option value="admin">Admin</option>
               </select>
 
-              <label htmlFor="loginId">ID</label>
+              <label htmlFor="loginId">Username</label>
               <input
                 id="loginId"
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                placeholder="Enter ID"
+                placeholder="Enter username"
               />
 
               <label htmlFor="loginPass">Password</label>
@@ -316,6 +331,9 @@ function Home() {
             <button onClick={() => login(selectedRole)} className="login-btn">
               Login as {selectedRole.toUpperCase()}
             </button>
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
+              <GoogleLogin onSuccess={onGoogleLoginSuccess} onError={() => setLoginMessage("Google login failed.")} />
+            </div>
             <p id="loginMessage">{loginMessage}</p>
             <button onClick={() => navigate("/register")} className="register-btn">Register</button>
           </div>
@@ -323,11 +341,12 @@ function Home() {
       </div>
       )}
       <footer>
-        Â© 2025 Student Feedback & Evaluation System | Designed by Team
+        © 2025 Student Feedback & Evaluation System | Designed by Team
       </footer>
     </div>
   );
 }
 
 export default Home;
+
 
