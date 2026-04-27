@@ -1,23 +1,31 @@
-const API = "http://localhost:8080";
+import { API_BASE_URL } from "./baseUrl";
+import { requestJson } from "./httpClient";
 
-const postJson = async (url, payload) => {
-  const response = await fetch(url, {
+const AUTH_BASE = `${API_BASE_URL}/api/auth`;
+
+export const forgotPassword = (payload) =>
+  requestJson(`${AUTH_BASE}/forgot-password`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: payload,
+    requireAuth: false,
   });
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.message || "Request failed");
-  }
-  return data;
-};
+export const resetPassword = (payload) =>
+  requestJson(`${AUTH_BASE}/reset-password`, {
+    method: "POST",
+    body: payload,
+    requireAuth: false,
+  });
 
-export const forgotPassword = (payload) => postJson(`${API}/api/auth/forgot-password`, payload);
+export const googleLogin = (token) =>
+  requestJson(`${AUTH_BASE}/google-login`, {
+    method: "POST",
+    body: { token },
+    requireAuth: false,
+  });
 
-export const resetPassword = (payload) => postJson(`${API}/api/auth/reset-password`, payload);
-
-export const googleLogin = (token) => postJson(`${API}/api/auth/google-login`, { token });
-
-export const completeGoogleProfile = (payload) => postJson(`${API}/api/auth/google-complete-profile`, payload);
+export const completeGoogleProfile = (payload) =>
+  requestJson(`${AUTH_BASE}/google-complete-profile`, {
+    method: "POST",
+    body: payload,
+  });

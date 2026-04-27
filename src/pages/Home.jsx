@@ -116,10 +116,17 @@ function Home() {
         return;
       }
 
-      const user = await googleLoginApi(token);
+      const authResponse = await googleLoginApi(token);
+      const user = authResponse?.user || {};
+      const sessionToken = authResponse?.token || "";
+      const expiresAt = authResponse?.expiresAt || null;
       const role = String(user?.role || ROLES.STUDENT).toLowerCase();
+      if (!sessionToken) {
+        setLoginMessage("Google login failed. Session token missing.");
+        return;
+      }
       const sessionUser = buildSessionUser(user, user?.username || "");
-      setSession(sessionUser, "google-oauth", Date.now() + 8 * 60 * 60 * 1000);
+      setSession(sessionUser, sessionToken, expiresAt);
       if (role === ROLES.STUDENT) {
         setLoginMessage("Google sign-in successful. If any details are missing, complete them in Profile.");
       } else {
