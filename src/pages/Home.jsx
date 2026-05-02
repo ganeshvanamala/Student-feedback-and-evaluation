@@ -10,6 +10,64 @@ import { loginUser } from "../api/usersApi";
 import { googleLogin as googleLoginApi } from "../api/authApi";
 import { getDepartmentNameById } from "../utils/departments";
 
+const DEMO_TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
+
+const FRONTEND_DEMO_USERS = Object.freeze({
+  admin123: {
+    password: "pass@123",
+    user: {
+      id: "admin123",
+      username: "admin123",
+      role: ROLES.ADMIN,
+      departmentIds: [],
+      subjectIds: [],
+      fullName: "Frontend Demo Admin",
+      email: "admin.demo@college.edu",
+    },
+  },
+  hod_cse: {
+    password: "hod@123",
+    user: {
+      id: "hod_cse",
+      username: "hod_cse",
+      role: ROLES.HOD,
+      departmentId: "cse",
+      departmentIds: ["cse"],
+      subjectIds: [],
+      fullName: "CSE HOD",
+      email: "hod.cse@college.edu",
+    },
+  },
+  fac_cse_1: {
+    password: "fac@123",
+    user: {
+      id: "fac_cse_1",
+      username: "fac_cse_1",
+      role: ROLES.FACULTY,
+      departmentId: "cse",
+      departmentIds: ["cse"],
+      subjectIds: ["sub-cse-y1-1", "sub-cse-y1-2", "sub-cse-y1-3"],
+      fullName: "CSE Faculty 1",
+      email: "faculty1.cse@college.edu",
+    },
+  },
+  stu_cse_1: {
+    password: "stu@123",
+    user: {
+      id: "stu_cse_1",
+      username: "stu_cse_1",
+      role: ROLES.STUDENT,
+      departmentId: "cse",
+      departmentIds: ["cse"],
+      subjectIds: ["sub-cse-y1-1", "sub-cse-y1-2", "sub-cse-y1-3", "sub-cse-y1-4"],
+      studentId: "CSE202601",
+      year: 1,
+      fullName: "CSE Student 1",
+      email: "student1.cse@college.edu",
+    },
+  },
+});
+
 function Home() {
   const navigate = useNavigate();
   const [loginId, setLoginId] = useState("");
@@ -66,9 +124,34 @@ function Home() {
     else navigate("/student");
   };
 
+  const getFrontendDemoLogin = () => {
+    const username = String(loginId || "").trim();
+    const password = String(loginPass || "");
+    const match = FRONTEND_DEMO_USERS[username];
+    if (!match || match.password !== password) {
+      return null;
+    }
+    return match.user;
+  };
+
   const login = async (type) => {
     if (!captchaVerified) {
       setLoginMessage("Please enter valid CAPTCHA.");
+      return;
+    }
+
+    const demoUser = getFrontendDemoLogin();
+    if (demoUser) {
+      const role = String(demoUser.role || "").toLowerCase();
+      if (role !== type) {
+        setLoginMessage(`This account is not a ${type.toUpperCase()} account.`);
+        return;
+      }
+
+      const sessionUser = buildSessionUser(demoUser, demoUser.username || loginId);
+      setSession(sessionUser, `frontend-demo-${demoUser.username}`, Date.now() + DEMO_TOKEN_TTL_MS);
+      setLoginMessage("");
+      navigateByRole(role);
       return;
     }
 
@@ -211,14 +294,13 @@ function Home() {
             <div className="about-section">
               <h2>Demo Login Credentials</h2>
               <p>
-                Migration V3 demo users are available for testing.<br/>
-                <strong>Default password for all demo users:</strong> demo@123
+                These demo accounts can sign in directly from the frontend for quick testing.
               </p>
               <ul>
-                <li><strong>HOD:</strong> hod-cse, hod-ece, hod-eee, hod-mech, hod-civil</li>
-                <li><strong>Faculty:</strong> faculty-cse-1, faculty-cse-2, faculty-ece-1, faculty-ece-2, faculty-eee-1, faculty-eee-2, faculty-mech-1, faculty-mech-2, faculty-civil-1, faculty-civil-2</li>
-                <li><strong>Students:</strong> Use any migrated student username from Migration V3</li>
-                <li><strong>Admin:</strong> admin123 / admin@123</li>
+                <li><strong>Admin:</strong> admin123 / pass@123</li>
+                <li><strong>HOD:</strong> hod_cse / hod@123</li>
+                <li><strong>Faculty:</strong> fac_cse_1 / fac@123</li>
+                <li><strong>Student:</strong> stu_cse_1 / stu@123</li>
               </ul>
             </div>
           </div>
